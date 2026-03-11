@@ -8,7 +8,6 @@ import { formatTipos } from '../config/arrayTipo.js'
 import { columns } from '../config/configuracionTabla.js'
 import { getPokemon } from '../helpers/getPokemon.js'
 import { getSpecies } from '../helpers/getSpecies.js'
-import { getSpanishName } from '../helpers/getNombresES.js'
 
 import DataTable from 'datatables.net-vue3'
 import DataTablesLib from 'datatables.net'
@@ -43,9 +42,10 @@ const { pokemon, stats, types, formattedTypes, moves } = toRefs(state)
 
 const getData = async () => {
   state.pokemon = await getPokemon(route.params.id)
-  state.forms = await getSpecies(route.params.id)
-  movesPokemon.value = await getMoves(state.pokemon.moves)
 
+  state.forms = await getSpecies(route.params.id)
+
+  movesPokemon.value = await getMoves(state.pokemon.moves)
 }
 watch(route, async () => {
   await getData()
@@ -108,8 +108,11 @@ const loadForm = async (url) => {
               <div class="text-center">
                 <img
                   class="w-48 h-48"
-                  :src="isShiny ? pokemon.sprites.front_shiny || notFound
-                  : pokemon.sprites.front_default || notFound"
+                  :src="
+                    isShiny
+                      ? pokemon.sprites.front_shiny || notFound
+                      : pokemon.sprites.front_default || notFound
+                  "
                   :alt="`Frente de ${pokemon.name}`"
                 />
                 <p class="text-sm text-gray-600 mt-2">Frente</p>

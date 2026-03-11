@@ -2,23 +2,29 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-    stats:Array
+  stats: Array,
 })
 const options = {
-        chart: {
-          id: 'vuechart-example'
-        },
-        xaxis: {
-          categories: ['PV', 'Ataque', 'Defensa', 'Ataque Especial', 'Defensa Especial', 'Velocidad']
-        }
-      }
+  chart: {
+    type: 'radar',
+  },
+  xaxis: {
+    categories: ['PV', 'Ataque', 'Defensa', 'Ataque Especial', 'Defensa Especial', 'Velocidad'],
+  },
+  dataLabels: {
+    enabled: true,
+  },
+  yaxis: {
+    show: false,
+  },
+}
 const series = computed(() => {
-    return [
-        {
-          name: 'Stats',
-          data: props.stats
-        }
-      ]
+  return [
+    {
+      name: 'Stats',
+      data: props.stats,
+    },
+  ]
 })
 </script>
 
