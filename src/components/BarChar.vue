@@ -6,10 +6,10 @@ const props = defineProps({
 })
 const options = {
   chart: {
-    id: 'vuechart-example'
+    id: 'vuechart-example',
   },
   legend: {
-    show: false
+    show: false,
   },
   plotOptions: {
     bar: {
@@ -37,10 +37,15 @@ const series = computed(() => {
     },
   ]
 })
+const totalStats = computed(() => {
+  return props.stats.reduce((total, stat) => total + stat, 0)
+})
 </script>
 
 <template>
   <div>
-    <apexchart width="500" type="bar" :options="options" :series="series"></apexchart>
+    <apexchart type="bar" :options="options" :series="series"></apexchart>
+
+    <div class="mt-4 text-left font-bold text-lg">Estadistica Total: {{ totalStats }}</div>
   </div>
 </template>

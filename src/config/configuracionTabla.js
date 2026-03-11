@@ -26,7 +26,7 @@ export const columns = [
     className: 'text-center px-4 py-3',
     render: function (data) {
       if (data === 'physical') {
-        // ancho fijo para uniformidad
+        // ancho para todos
         return `<span class="px-2 py-0.5 w-25 rounded-full bg-red-500 text-white inline-flex items-center justify-center"><span class="mr-1">${fisico}</span> Físico</span>`
       } else if (data === 'special') {
         return `<span class="px-2 py-0.5 w-25 rounded-full bg-blue-500 text-white inline-flex items-center justify-center"><span class="mr-1">${especial}</span> Especial</span>`
