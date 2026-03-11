@@ -41,6 +41,9 @@ export const columns = [
     title: 'Movimiento',
     width: '10%',
     className: 'text-center px-4 py-3',
+    render: function (data) {
+      return `<span class="bg-gray-200 px-3 py-1 rounded-full">${data}</span>`
+    },
   },
   {
     data: 'power',

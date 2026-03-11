@@ -6,6 +6,7 @@ import RadarChar from '../components/RadarChar.vue'
 import notFound from '../assets/images/no_found.png'
 import { formatTipos } from '../config/arrayTipo.js'
 import { columns } from '../config/configuracionTabla.js'
+import { getPokemon } from '../helpers/getPokemon.js'
 
 import { getSpanishName } from '../helpers/getNombresES.js'
 
@@ -40,13 +41,11 @@ const route = useRoute()
 const { pokemon, stats, types, formattedTypes, moves } = toRefs(state)
 
 const getData = async () => {
-  const resPokemon = await fetch(`https://pokeapi.co/api/v2/pokemon/${route.params.id}`)
-  const pokemonData = await resPokemon.json()
-  state.pokemon = pokemonData
+  state.pokemon = await getPokemon(route.params.id)
 
   const resSpecies = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${route.params.id}`)
   const speciesData = await resSpecies.json()
-  const movesDetailsPromises = pokemonData.moves.map(async (move) => {
+  const movesDetailsPromises = state.pokemon.moves.map(async (move) => {
     const moveResponse = await fetch(move.move.url)
     const moveData = await moveResponse.json()
     //nobody expects the spanish inquistion, pero la traemos igual
@@ -126,7 +125,8 @@ const loadForm = async (url) => {
               <div class="text-center">
                 <img
                   class="w-48 h-48"
-                  :src="isShiny ? pokemon.sprites.front_shiny : pokemon.sprites.front_default"
+                  :src="isShiny ? pokemon.sprites.front_shiny || notFound
+                  : pokemon.sprites.front_default || notFound"
                   :alt="`Frente de ${pokemon.name}`"
                 />
                 <p class="text-sm text-gray-600 mt-2">Frente</p>
