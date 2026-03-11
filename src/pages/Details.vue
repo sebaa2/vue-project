@@ -7,6 +7,8 @@ import notFound from '../assets/images/no_found.png'
 import { formatTipos } from '../config/arrayTipo.js'
 import { columns } from '../config/configuracionTabla.js'
 
+import { getSpanishName } from '../helpers/getNombresES.js'
+
 import DataTable from 'datatables.net-vue3'
 import DataTablesLib from 'datatables.net'
 import 'datatables.net-responsive'
@@ -47,10 +49,13 @@ const getData = async () => {
   const movesDetailsPromises = pokemonData.moves.map(async (move) => {
     const moveResponse = await fetch(move.move.url)
     const moveData = await moveResponse.json()
+    //nobody expects the spanish inquistion, pero la traemos igual
+    const spanishName = getSpanishName(moveData.names) || moveData.name
+
     return {
       type: moveData.type.name,
       category: moveData.damage_class.name,
-      name: moveData.name,
+      name: spanishName,
       power: moveData.power || '-',
       pp: moveData.pp,
     }
@@ -70,7 +75,7 @@ onMounted(async () => {
   await nextTick()
 })
 
-//Cambio de graficos
+//Cambio entre barra y radar
 const isBarChart = ref(true)
 
 const changeChart = () => {
