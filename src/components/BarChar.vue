@@ -8,6 +8,11 @@ const options = {
         chart: {
           id: 'vuechart-example'
         },
+        plotOptions: {
+          bar: {
+            horizontal: true,
+          }
+        },
         xaxis: {
           categories: ['PV', 'Ataque', 'Defensa', 'Ataque Especial', 'Defensa Especial', 'Velocidad']
         }

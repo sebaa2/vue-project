@@ -26,13 +26,14 @@ export const columns = [
     className: 'text-center px-4 py-3',
     render: function (data) {
       if (data === 'physical') {
-        return `<span class="px-2 py-1 rounded-full bg-red-500 text-white flex items-center justify-center"><span class="mr-1">${fisico}</span> Físico</span>`
+        // ancho fijo para uniformidad
+        return `<span class="px-2 py-0.5 w-25 rounded-full bg-red-500 text-white inline-flex items-center justify-center"><span class="mr-1">${fisico}</span> Físico</span>`
       } else if (data === 'special') {
-        return `<span class="px-2 py-1 rounded-full bg-blue-500 text-white flex items-center justify-center"><span class="mr-1">${especial}</span> Especial</span>`
+        return `<span class="px-2 py-0.5 w-25 rounded-full bg-blue-500 text-white inline-flex items-center justify-center"><span class="mr-1">${especial}</span> Especial</span>`
       } else if (data === 'status') {
-        return `<span class="px-2 py-1 rounded-full bg-green-500 text-white flex items-center justify-center"><span class="mr-1">${status}</span> Estado</span>`
+        return `<span class="px-2 py-0.5 w-25 rounded-full bg-green-500 text-white inline-flex items-center justify-center"><span class="mr-1">${status}</span> Estado</span>`
       } else {
-        return `<span class="px-2 py-1 rounded-full bg-gray-500 text-white flex items-center justify-center "><span class="mr-1">${data}</span></span>`
+        return `<span class="px-2 py-0.5 w-25 rounded-full bg-gray-500 text-white inline-flex items-center justify-center"><span class="mr-1">${data}</span></span>`
       }
     },
   },
@@ -40,7 +41,7 @@ export const columns = [
     data: 'name',
     title: 'Movimiento',
     width: '10%',
-    className: 'text-center px-4 py-3',
+    className: 'text-left px-4 py-3',
     render: function (data) {
       return `<span class="bg-gray-200 px-3 py-1 rounded-full">${data}</span>`
     },
