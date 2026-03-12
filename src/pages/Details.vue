@@ -81,7 +81,6 @@ const loadForm = async (url) => {
 <template>
   <div>
     <div v-if="pokemon">
-      <
       <div class="w-full max-w-6xl mx-auto rounded-xl p-6 md:p-10 shadow-lg">
         <h1 class="front-black md:text-3x1 text-xl text-red-900 mb-2">{{ pokemon.name }}</h1>
         <span
