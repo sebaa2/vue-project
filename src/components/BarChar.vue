@@ -43,9 +43,11 @@ const totalStats = computed(() => {
 </script>
 
 <template>
-  <div>
+  <div class="relative">
     <apexchart type="bar" :options="options" :series="series"></apexchart>
 
-    <div class="mt-4 text-left font-bold text-lg">Estadistica Total: {{ totalStats }}</div>
+    <div class="absolute bottom-0.05 right-2 font-bold text-lg">
+      Estadistica Total: {{ totalStats }}
+    </div>
   </div>
 </template>

@@ -79,104 +79,98 @@ const loadForm = async (url) => {
 </script>
 
 <template>
-  <div>
-    <div v-if="pokemon">
-      <div class="w-full max-w-6xl mx-auto rounded-xl p-6 md:p-10 shadow-lg">
-        <h1 class="front-black md:text-3x1 text-xl text-red-900 mb-2">{{ pokemon.name }}</h1>
-        <span
-          v-for="tipo in formattedTypes"
-          :key="tipo.tipo"
-          :class="tipo.color"
-          class="py-1 px-3 shadow-md rounded-full text-white front-semibold mr-1 mt-3"
-        >
-          {{ tipo.tipo }}
-        </span>
+  <div v-if="pokemon">
+    <div class="w-full max-w-6xl mx-auto rounded-xl p-6 md:p-10 shadow-lg">
+      <h1 class="front-black md:text-3x1 text-xl text-red-900 mb-2">
+        {{ pokemon.name }}
+      </h1>
 
-        <!-- Apartado de sprites-->
-        <div class="mt-4 flex items-center gap-4">
+      <span
+        v-for="tipo in formattedTypes"
+        :key="tipo.tipo"
+        :class="tipo.color"
+        class="py-1 px-3 shadow-md rounded-full text-white front-semibold mr-1 mt-3"
+      >
+        {{ tipo.tipo }}
+      </span>
+
+      <!-- BOTON SHINY -->
+      <div class="mt-4 flex items-center gap-4">
+        <button
+          @click="toggleShiny()"
+          class="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-black rounded-lg shadow-md hover:from-yellow-500 hover:to-orange-600 transform hover:scale-105 transition-all duration-200"
+        >
+          {{ isShiny ? 'Normal' : 'Shiny' }}
+        </button>
+      </div>
+
+      <!-- ================= SPRITES ================= -->
+      <div class="flex flex-col md:flex-row">
+        <div class="text-center">
+          <img
+            class="w-48 h-48"
+            :src="
+              isShiny
+                ? pokemon.sprites.front_shiny || notFound
+                : pokemon.sprites.front_default || notFound
+            "
+          />
+          <p class="text-sm text-gray-600 mt-2">Frente</p>
+        </div>
+
+        <div class="text-center">
+          <img
+            class="w-48 h-48"
+            :src="
+              isShiny
+                ? pokemon.sprites.back_shiny || notFound
+                : pokemon.sprites.back_default || notFound
+            "
+          />
+          <p class="text-sm text-gray-600 mt-2">Espalda</p>
+        </div>
+      </div>
+
+      <!-- FORMAS -->
+      <div class="mt-4 text-center">
+        <h2 class="text-lg sm:text-x1 md:text-2x1 font-bold">Formas</h2>
+
+        <div class="flex flex-wrap justify-center gap-1 sm:gap-2 md:gap-3 mt-2">
           <button
-            @click="toggleShiny()"
-            class="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-black rounded-lg shadow-md hover:from-yellow-500 hover:to-orange-600 transform hover:scale-105 transition-all duration-200"
+            v-for="form in state.forms"
+            :key="form.pokemon.name"
+            @click="loadForm(form.pokemon.url)"
+            class="px-2 py-1 text-xs sm: px-3 sm:py-1.5 sm:text-sm md:px-4 md:py-2 md:text-sm bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-lg shadow-md sm:shadow-md hover:from-blue-500 hover:to-blue-700 transform hover:scale-105 transition-all duration-200"
           >
-            {{ isShiny ? 'Normal' : 'Shiny' }}
+            {{ form.pokemon.name }}
           </button>
         </div>
-        <div class="flex flex-wrap">
-          <div class="flex-1 grid place-items-center">
-            <!-- Vista doble -->
-            <div class="flex gap-4">
-              <div class="text-center">
-                <img
-                  class="w-48 h-48"
-                  :src="
-                    isShiny
-                      ? pokemon.sprites.front_shiny || notFound
-                      : pokemon.sprites.front_default || notFound
-                  "
-                  :alt="`Frente de ${pokemon.name}`"
-                />
-                <p class="text-sm text-gray-600 mt-2">Frente</p>
-              </div>
-              <div class="text-center">
-                <img
-                  class="w-48 h-48"
-                  :src="
-                    isShiny
-                      ? pokemon.sprites.back_shiny || notFound
-                      : pokemon.sprites.back_default || notFound
-                  "
-                  :alt="`Espalda de ${pokemon.name}`"
-                />
-                <p class="text-sm text-gray-600 mt-2">Espalda</p>
-              </div>
-            </div>
-            <div class="mt-4">
-              <h2 class="text-lg font-bold">Formas</h2>
-              <!-- Formas -->
-              <div class="flex flex-wrap gap-2 mt-2">
-                <button
-                  v-for="form in state.forms"
-                  :key="form.pokemon.name"
-                  @click="loadForm(form.pokemon.url)"
-                  class="px-4 py-2 bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-lg shadow-md hover:from-blue-500 hover:to-blue-700 transform hover:scale-105 transition-all duration-200"
-                >
-                  {{ form.pokemon.name }}
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="flex-1">
-            <button
-              @click="changeChart()"
-              class="px-2 py-2 bg-blue-500 text-white rounded hover:bg-blue-500"
-            >
-              {{ isBarChart ? 'Radar' : 'Bar' }}
-            </button>
+      </div>
 
-            <!-- <bar-char :stats="stats" /> -->
-            <!-- {{ isBarChart }} -->
-            <component :is="isBarChart ? BarChar : RadarChar" :stats="stats" />
-          </div>
-        </div>
+      <!-- ================= STATS ================= -->
+      <div class="mt-8">
+        <button
+          @click="changeChart()"
+          class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 mb-4"
+        >
+          {{ isBarChart ? 'Radar' : 'Bar' }}
+        </button>
 
-        <div class="mt-8">
-          <h2 class="text-2xl font-bold mb-4">Movimientos</h2>
-          <!-- <table id="moves-table" class="display w-full">
-            <thead>
-              <tr>
-                <th>Movimiento</th>
-                <th>Nivel</th>
-                <th>Método</th>
-              </tr>
-            </thead>
-          </table> -->
+        <component :is="isBarChart ? BarChar : RadarChar" :stats="stats" />
+      </div>
+
+      <!-- ================= MOVIMIENTOS ================= -->
+      <div class="mt-8">
+        <h2 class="text-2xl font-bold mb-4">Movimientos</h2>
+
+        <div class="w-full overflow-x-auto rounded-lg">
           <DataTable :columns="columns" :data="movesPokemon" />
         </div>
       </div>
     </div>
-    <div v-else>
-      <p>Cargando...</p>
-    </div>
-    <!-- <router-link to="/">Home</router-link> -->
+  </div>
+
+  <div v-else>
+    <p>Cargando...</p>
   </div>
 </template>
