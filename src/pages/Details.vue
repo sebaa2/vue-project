@@ -76,13 +76,62 @@ const loadForm = async (url) => {
   state.pokemon = data
   await nextTick()
 }
+
+function formatName(name) {
+  const parts = name.split('-')
+  if (parts.length === 1) {
+    return 'Base'
+  }
+
+  return parts
+    .slice(1)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+const paradoxPokemon = [
+  'great-tusk',
+  'scream-tail',
+  'brute-bonnet',
+  'flutter-mane',
+  'slither-wing',
+  'sandy-shocks',
+  'roaring-moon',
+  'walking-wake',
+  'gouging-fire',
+  'raging-bolt',
+  'iron-treads',
+  'iron-bundle',
+  'iron-hands',
+  'iron-jugulis',
+  'iron-moth',
+  'iron-thorns',
+  'iron-valiant',
+  'iron-leaves',
+  'iron-boulder',
+  'iron-crown',
+]
+function isParadoja(name) {
+  return paradoxPokemon.includes(name)
+}
+
+function formatPoke(name) {
+  if (isParadoja(name)) {
+    return name
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
+  const baseName = name.split('-')[0]
+  return baseName.charAt(0).toUpperCase() + baseName.slice(1)
+}
 </script>
 
 <template>
   <div v-if="pokemon">
     <div class="w-full max-w-6xl mx-auto rounded-xl p-6 md:p-10 shadow-lg">
       <h1 class="front-black md:text-3x1 text-xl text-red-900 mb-2">
-        {{ pokemon.name }}
+        {{ formatPoke(pokemon.name) }}
       </h1>
 
       <span
@@ -97,15 +146,21 @@ const loadForm = async (url) => {
       <!-- BOTON SHINY -->
       <div class="mt-4 flex items-center gap-4">
         <button
-          @click="toggleShiny()"
-          class="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-black rounded-lg shadow-md hover:from-yellow-500 hover:to-orange-600 transform hover:scale-105 transition-all duration-200"
+          @click="toggleShiny"
+          :class="
+            isShiny
+              ? 'bg-purple-500 text-white'
+              : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-black'
+          "
+          class="px-4 py-2 rounded-lg shadow-md font-semibold hover:scale-105 active:scale-95 transition-all duration-200"
         >
           {{ isShiny ? 'Normal' : 'Shiny' }}
         </button>
       </div>
-
+      <!--flex flex-row md:flex-row
+      centrar los sprites en pantalla completa -->
       <!-- ================= SPRITES ================= -->
-      <div class="flex flex-col md:flex-row">
+      <div class="grid grid-cols-1 sm:grid-cols-2 place-items-center gap-1">
         <div class="text-center">
           <img
             class="w-48 h-48"
@@ -140,9 +195,9 @@ const loadForm = async (url) => {
             v-for="form in state.forms"
             :key="form.pokemon.name"
             @click="loadForm(form.pokemon.url)"
-            class="px-2 py-1 text-xs sm: px-3 sm:py-1.5 sm:text-sm md:px-4 md:py-2 md:text-sm bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-lg shadow-md sm:shadow-md hover:from-blue-500 hover:to-blue-700 transform hover:scale-105 transition-all duration-200"
+            class="px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm md:px-4 md:py-2 md:text-sm bg-gradient-to-r from-blue-400 to-blue-600 text-white font-medium rounded-lg shadow hover:from-blue-500 hover:to-blue-700 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-200"
           >
-            {{ form.pokemon.name }}
+            {{ formatName(form.pokemon.name) }}
           </button>
         </div>
       </div>
@@ -155,9 +210,16 @@ const loadForm = async (url) => {
         >
           {{ isBarChart ? 'Radar' : 'Bar' }}
         </button>
-
-        <component :is="isBarChart ? BarChar : RadarChar" :stats="stats" />
+        <div
+          v-if="formattedTypes.length"
+          :class="[formattedTypes[0].color, { 'flex justify-center items-center': !isBarChart }]"
+          class="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto rounded shadow-lg"
+        >
+          <component :is="isBarChart ? BarChar : RadarChar" :stats="stats" />
+        </div>
       </div>
+      <!--funciono
+      el radar no funciona-->
 
       <!-- ================= MOVIMIENTOS ================= -->
       <div class="mt-8">

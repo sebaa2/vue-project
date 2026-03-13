@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, render } from 'vue'
 
 const props = defineProps({
   stats: Array,
@@ -7,7 +7,9 @@ const props = defineProps({
 const options = {
   chart: {
     id: 'vuechart-example',
+    foreColor: '#fff',
   },
+
   legend: {
     show: false,
   },
@@ -23,7 +25,7 @@ const options = {
     '#6890F0', // Defensa
     '#A890F0', // Ataque Especial
     '#98D8D8', // Defensa Especial
-    '#F8D030', // Velocidad
+    '#CD1DF5', // Velocidad
   ],
   xaxis: {
     categories: ['PV', 'Ataque', 'Defensa', 'Ataque Especial', 'Defensa Especial', 'Velocidad'],

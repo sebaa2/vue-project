@@ -14,7 +14,7 @@ export const columns = [
     title: 'Tipo',
     width: '10%',
     className: 'text-center px-4 py-3',
-    render: function (data, type, row) {
+    render: function (data) {
       const tipo = formatTipos(data)
       return `<span class="px-2 py-1 rounded-full ${tipo.color} text-white ">${tipo.tipo}</span>`
     },
