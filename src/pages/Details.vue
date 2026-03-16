@@ -42,8 +42,10 @@ const { pokemon, stats, types, formattedTypes, moves } = toRefs(state)
 
 const getData = async () => {
   state.pokemon = await getPokemon(route.params.id)
+  console.log('state.pokemon', state.pokemon)
 
   state.forms = await getSpecies(route.params.id)
+  console.log('state.forms', state.forms)
 
   movesPokemon.value = await getMoves(state.pokemon.moves)
 }
@@ -125,6 +127,19 @@ function formatPoke(name) {
   const baseName = name.split('-')[0]
   return baseName.charAt(0).toUpperCase() + baseName.slice(1)
 }
+
+const filteredForms = computed(() => {
+  return state.forms.filter(
+    (form) => !form.pokemon.name.includes('koraidon') && !form.pokemon.name.includes('miraidon'),
+  )
+})
+
+const activeForm = ref(null)
+
+function selectForm(form) {
+  activeForm.value = form.pokemon.name
+  loadForm(form.pokemon.url)
+}
 </script>
 
 <template>
@@ -187,15 +202,20 @@ function formatPoke(name) {
       </div>
 
       <!-- FORMAS -->
-      <div class="mt-4 text-center">
+      <div v-if="state.forms.length > 1" class="mt-4 text-center">
         <h2 class="text-lg sm:text-x1 md:text-2x1 font-bold">Formas</h2>
 
         <div class="flex flex-wrap justify-center gap-1 sm:gap-2 md:gap-3 mt-2">
           <button
-            v-for="form in state.forms"
+            v-for="form in filteredForms"
             :key="form.pokemon.name"
-            @click="loadForm(form.pokemon.url)"
-            class="px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm md:px-4 md:py-2 md:text-sm bg-gradient-to-r from-blue-400 to-blue-600 text-white font-medium rounded-lg shadow hover:from-blue-500 hover:to-blue-700 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-200"
+            @click="selectForm(form)"
+            :class="[
+              'px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm md:px-4 md:py-2 md:text-sm font-medium rounded-lg shadow transition-all duration-200 focus:outline-none focus:ring-2',
+              activeForm === form.pokemon.name
+                ? 'bg-blue-700 text-white scale-105 ring-blue-400'
+                : 'bg-gradient-to-r from-blue-400 to-blue-600 text-white hover:from-blue-500 hover:to-blue-700 hover:scale-105 active:scale-95',
+            ]"
           >
             {{ formatName(form.pokemon.name) }}
           </button>

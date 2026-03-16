@@ -7,7 +7,12 @@ const state = reactive({
   name: '',
   showList: false,
   filterPokemon: computed(() => {
-    return state.pokemons.filter((pokemon) => pokemon.name.includes(state.name.toLowerCase()))
+    return state.pokemons.filter((pokemon) => {
+    const pokemonName = pokemon.name.toLowerCase().replace(/-/g, ' ')
+    const search = state.name.toLowerCase()
+
+    return pokemonName.includes(search)
+  })
   }),
 })
 watch(state, () => {})
