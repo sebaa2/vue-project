@@ -1,6 +1,7 @@
 <script setup>
 import { getSearchPoke } from '../helpers/getSearchPoke'
-import { computed, reactive, toRefs, onMounted, watch } from 'vue'
+import { computed, reactive, toRefs, onMounted } from 'vue'
+import { formatPoke } from '../helpers/formatPoke' // ✅ Importamos la función
 
 const state = reactive({
   pokemons: [],
@@ -8,14 +9,14 @@ const state = reactive({
   showList: false,
   filterPokemon: computed(() => {
     return state.pokemons.filter((pokemon) => {
-    const pokemonName = pokemon.name.toLowerCase().replace(/-/g, ' ')
-    const search = state.name.toLowerCase()
+      const pokemonName = pokemon.name.toLowerCase().replace(/-/g, ' ')
+      const search = state.name.toLowerCase()
 
-    return pokemonName.includes(search)
-  })
+      return pokemonName.includes(search)
+    })
   }),
 })
-watch(state, () => {})
+
 const { pokemons, name, filterPokemon } = toRefs(state)
 
 onMounted(async () => {
@@ -26,44 +27,6 @@ function hideList() {
   setTimeout(() => {
     state.showList = false
   }, 200)
-}
-
-const paradoxPokemon = [
-  'great-tusk',
-  'scream-tail',
-  'brute-bonnet',
-  'flutter-mane',
-  'slither-wing',
-  'sandy-shocks',
-  'roaring-moon',
-  'walking-wake',
-  'gouging-fire',
-  'raging-bolt',
-  'iron-treads',
-  'iron-bundle',
-  'iron-hands',
-  'iron-jugulis',
-  'iron-moth',
-  'iron-thorns',
-  'iron-valiant',
-  'iron-leaves',
-  'iron-boulder',
-  'iron-crown',
-]
-
-function isParadoja(name) {
-  return paradoxPokemon.includes(name)
-}
-
-function formatPoke(name) {
-  if (isParadoja(name)) {
-    return name
-      .split('-')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
-  }
-  const baseName = name.split('-')[0]
-  return baseName.charAt(0).toUpperCase() + baseName.slice(1)
 }
 </script>
 
@@ -100,6 +63,7 @@ function formatPoke(name) {
 
             <router-link :to="`/details/${pokemon.index}`">
               {{ formatPoke(pokemon.name) }}
+              <!-- ✅ Usamos la función importada -->
             </router-link>
           </li>
         </ul>

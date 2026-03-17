@@ -8,6 +8,13 @@ import { formatTipos } from '../config/arrayTipo.js'
 import { columns } from '../config/configuracionTabla.js'
 import { getPokemon } from '../helpers/getPokemon.js'
 import { getSpecies } from '../helpers/getSpecies.js'
+import { formatPoke } from '../helpers/formatPoke.js'
+import {
+  formatShowdownName,
+  shouldUseShowdown,
+  getShowdownSpritesWithFallback,
+  CHERRIM_SUNSHINE_SPRITES,
+} from '../helpers/showdownSprites.js'
 
 import DataTable from 'datatables.net-vue3'
 import DataTablesLib from 'datatables.net'
@@ -25,6 +32,9 @@ const state = reactive({
 })
 const movesPokemon = ref([])
 
+// Estado para controlar si estamos usando fallback de Gen5
+const useFallbackSprite = ref(false)
+
 function filterStats() {
   if (state.pokemon) {
     return state.pokemon.stats.map((stat) => stat.base_stat)
@@ -40,8 +50,73 @@ function filterTypes() {
 const route = useRoute()
 const { pokemon, stats, types, formattedTypes, moves } = toRefs(state)
 
+// Manejador de error de imagen mejorado
+const handleImageError = (e) => {
+  const pokemonName = state.pokemon?.name
+
+  if (!useFallbackSprite.value && pokemonName && shouldUseShowdown(pokemonName)) {
+  
+    console.log(`Sprite animado no disponible para ${pokemonName}, intentando con Home`)
+    useFallbackSprite.value = true
+  } else {
+
+    e.target.src = notFound
+    console.log('Error cargando sprite, usando imagen por defecto')
+  }
+}
+
+// Computed para obtener el sprite actual según el estado de fallback
+const currentSprite = computed(() => {
+  if (!state.pokemon) return {}
+
+  const sprites = {}
+  const types = ['front_default', 'front_shiny', 'back_default', 'back_shiny']
+
+  types.forEach((type) => {
+    if (useFallbackSprite.value && state.pokemon._fallbackSprites) {
+      sprites[type] = state.pokemon._fallbackSprites[type]
+    } else {
+      sprites[type] = state.pokemon.sprites[type]
+    }
+  })
+
+  return sprites
+})
+
 const getData = async () => {
-  state.pokemon = await getPokemon(route.params.id)
+  let pokemonData = await getPokemon(route.params.id)
+
+  // Resetear el estado de fallback
+  useFallbackSprite.value = false
+
+  // Aplicar sprites de Showdown al Pokémon base
+  const pokemonName = pokemonData.name
+
+  // Caso especial para Cherrim Sunshine
+  if (pokemonName === 'cherrim-sunshine') {
+    pokemonData.sprites = {
+      ...pokemonData.sprites,
+      ...CHERRIM_SUNSHINE_SPRITES,
+    }
+  }
+  // Para Pokémon que deben usar Showdown (con fallback a Gen5)
+  else if (shouldUseShowdown(pokemonName)) {
+    // Guardamos ambos tipos de sprites
+    const showdownSprites = getShowdownSpritesWithFallback(pokemonName)
+    pokemonData.sprites = {
+      ...pokemonData.sprites,
+      ...showdownSprites.animated, // Por defecto usamos animados
+    }
+    // Guardamos los fallback para usarlos si es necesario
+    pokemonData._fallbackSprites = showdownSprites.fallback
+    console.log(`Sprites Showdown para: ${pokemonName}`, showdownSprites)
+  }
+  // Si no usa Showdown, mantenemos los sprites originales
+  else {
+    console.log('Manteniendo sprites originales para:', pokemonName)
+  }
+
+  state.pokemon = pokemonData
   console.log('state.pokemon', state.pokemon)
 
   state.forms = await getSpecies(route.params.id)
@@ -49,6 +124,7 @@ const getData = async () => {
 
   movesPokemon.value = await getMoves(state.pokemon.moves)
 }
+
 watch(route, async () => {
   await getData()
   await nextTick()
@@ -72,12 +148,6 @@ const isShiny = ref(false)
 const toggleShiny = () => {
   isShiny.value = !isShiny.value
 }
-const loadForm = async (url) => {
-  const res = await fetch(url)
-  const data = await res.json()
-  state.pokemon = data
-  await nextTick()
-}
 
 function formatName(name) {
   const parts = name.split('-')
@@ -91,43 +161,6 @@ function formatName(name) {
     .join(' ')
 }
 
-const paradoxPokemon = [
-  'great-tusk',
-  'scream-tail',
-  'brute-bonnet',
-  'flutter-mane',
-  'slither-wing',
-  'sandy-shocks',
-  'roaring-moon',
-  'walking-wake',
-  'gouging-fire',
-  'raging-bolt',
-  'iron-treads',
-  'iron-bundle',
-  'iron-hands',
-  'iron-jugulis',
-  'iron-moth',
-  'iron-thorns',
-  'iron-valiant',
-  'iron-leaves',
-  'iron-boulder',
-  'iron-crown',
-]
-function isParadoja(name) {
-  return paradoxPokemon.includes(name)
-}
-
-function formatPoke(name) {
-  if (isParadoja(name)) {
-    return name
-      .split('-')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
-  }
-  const baseName = name.split('-')[0]
-  return baseName.charAt(0).toUpperCase() + baseName.slice(1)
-}
-
 const filteredForms = computed(() => {
   return state.forms.filter(
     (form) => !form.pokemon.name.includes('koraidon') && !form.pokemon.name.includes('miraidon'),
@@ -136,9 +169,39 @@ const filteredForms = computed(() => {
 
 const activeForm = ref(null)
 
-function selectForm(form) {
-  activeForm.value = form.pokemon.name
-  loadForm(form.pokemon.url)
+const selectForm = async (form) => {
+  const res = await fetch(form.pokemon.url)
+  const data = await res.json()
+  const pokemonName = form.pokemon.name
+
+  // Resetear el estado de fallback
+  useFallbackSprite.value = false
+
+  // Caso especial para Cherrim Sunshine
+  if (pokemonName === 'cherrim-sunshine') {
+    data.sprites = {
+      ...data.sprites,
+      ...CHERRIM_SUNSHINE_SPRITES,
+    }
+  }
+  // Showdown para todos (con fallback a Gen5)
+  else if (shouldUseShowdown(pokemonName)) {
+    const showdownSprites = getShowdownSpritesWithFallback(pokemonName)
+    data.sprites = {
+      ...data.sprites,
+      ...showdownSprites.animated,
+    }
+    data._fallbackSprites = showdownSprites.fallback
+    console.log(`Sprites Showdown para forma: ${pokemonName}`, showdownSprites)
+  }
+  // sprites originales
+  else {
+    console.log('Manteniendo sprites originales para forma:', pokemonName)
+  }
+
+  state.pokemon = data
+  activeForm.value = pokemonName
+  console.log('activeForm.value', activeForm.value)
 }
 </script>
 
@@ -172,18 +235,14 @@ function selectForm(form) {
           {{ isShiny ? 'Normal' : 'Shiny' }}
         </button>
       </div>
-      <!--flex flex-row md:flex-row
-      centrar los sprites en pantalla completa -->
+
       <!-- ================= SPRITES ================= -->
       <div class="grid grid-cols-1 sm:grid-cols-2 place-items-center gap-1">
         <div class="text-center">
           <img
             class="w-48 h-48"
-            :src="
-              isShiny
-                ? pokemon.sprites.front_shiny || notFound
-                : pokemon.sprites.front_default || notFound
-            "
+            :src="isShiny ? currentSprite.front_shiny : currentSprite.front_default"
+            @error="handleImageError"
           />
           <p class="text-sm text-gray-600 mt-2">Frente</p>
         </div>
@@ -191,14 +250,16 @@ function selectForm(form) {
         <div class="text-center">
           <img
             class="w-48 h-48"
-            :src="
-              isShiny
-                ? pokemon.sprites.back_shiny || notFound
-                : pokemon.sprites.back_default || notFound
-            "
+            :src="isShiny ? currentSprite.back_shiny : currentSprite.back_default"
+            @error="handleImageError"
           />
           <p class="text-sm text-gray-600 mt-2">Espalda</p>
         </div>
+      </div>
+
+      <!-- Mensaje indicando que se está usando sprite alternativo -->
+      <div v-if="useFallbackSprite" class="text-center mt-2">
+        <p class="text-xs text-gray-500">Usando sprite estático (GIF no disponible)</p>
       </div>
 
       <!-- FORMAS -->
@@ -238,8 +299,6 @@ function selectForm(form) {
           <component :is="isBarChart ? BarChar : RadarChar" :stats="stats" />
         </div>
       </div>
-      <!--funciono
-      el radar no funciona-->
 
       <!-- ================= MOVIMIENTOS ================= -->
       <div class="mt-8">
