@@ -3,6 +3,7 @@ import { useRoute } from 'vue-router'
 import { reactive, toRefs, computed, ref, onMounted, watch, nextTick } from 'vue'
 import BarChar from '../components/BarChar.vue'
 import RadarChar from '../components/RadarChar.vue'
+import EvolutionChain from '../components/EvolutionChain.vue' // 👈 IMPORTAR COMPONENTE
 import notFound from '../assets/images/no_found.png'
 import { formatTipos } from '../config/arrayTipo.js'
 import { columns } from '../config/configuracionTabla.js'
@@ -10,11 +11,11 @@ import { getPokemon } from '../helpers/getPokemon.js'
 import { getSpecies } from '../helpers/getSpecies.js'
 import { formatPoke } from '../helpers/formatPoke.js'
 import {
-  formatShowdownName,
   shouldUseShowdown,
   getShowdownSpritesWithFallback,
   CHERRIM_SUNSHINE_SPRITES,
 } from '../helpers/showdownSprites.js'
+import { getEvolutionChain } from '../helpers/getEvo.js'
 
 import DataTable from 'datatables.net-vue3'
 import DataTablesLib from 'datatables.net'
@@ -26,6 +27,7 @@ DataTable.use(DataTablesLib)
 const state = reactive({
   pokemon: null,
   forms: [],
+  evolutions: [],
   stats: computed(() => filterStats()),
   types: computed(() => filterTypes()),
   formattedTypes: computed(() => filterTypes().map((type) => formatTipos(type))),
@@ -55,11 +57,9 @@ const handleImageError = (e) => {
   const pokemonName = state.pokemon?.name
 
   if (!useFallbackSprite.value && pokemonName && shouldUseShowdown(pokemonName)) {
-  
     console.log(`Sprite animado no disponible para ${pokemonName}, intentando con Home`)
     useFallbackSprite.value = true
   } else {
-
     e.target.src = notFound
     console.log('Error cargando sprite, usando imagen por defecto')
   }
@@ -99,7 +99,7 @@ const getData = async () => {
       ...CHERRIM_SUNSHINE_SPRITES,
     }
   }
-  // Para Pokémon que deben usar Showdown (con fallback a Gen5)
+  // Para Pokémon que deben usar Showdown (con fallback home)
   else if (shouldUseShowdown(pokemonName)) {
     // Guardamos ambos tipos de sprites
     const showdownSprites = getShowdownSpritesWithFallback(pokemonName)
@@ -122,7 +122,26 @@ const getData = async () => {
   state.forms = await getSpecies(route.params.id)
   console.log('state.forms', state.forms)
 
+  state.evolutions = await getEvolutionChain(route.params.id)
+  console.log('state.evolutions', state.evolutions)
+
   movesPokemon.value = await getMoves(state.pokemon.moves)
+}
+
+// 👈 ESTA FUNCIÓN SE PASA AL COMPONENTE
+const goToEvolution = async (evolutionName) => {
+  // Obtener el ID del Pokémon desde su nombre
+  const pokemonRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${evolutionName}/`)
+  const pokemonData = await pokemonRes.json()
+
+  // Cambiar la ruta modificando el parámetro
+  route.params.id = pokemonData.id
+  await getData()
+}
+
+// Función para verificar si un Pokémon es la evolución actual
+const isCurrentPokemon = (evolutionName) => {
+  return state.pokemon?.name === evolutionName
 }
 
 watch(route, async () => {
@@ -151,14 +170,18 @@ const toggleShiny = () => {
 
 function formatName(name) {
   const parts = name.split('-')
+  const base = parts[0]
+
+  // Capitalizar
+  const capitalize = (word) => word.charAt(0).toUpperCase() + word.slice(1)
+
+  // Forma base → mostrar nombre del Pokémon
   if (parts.length === 1) {
-    return 'Base'
+    return capitalize(base)
   }
 
-  return parts
-    .slice(1)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  // Formas → mostrar solo la variante
+  return parts.slice(1).map(capitalize).join(' ')
 }
 
 const filteredForms = computed(() => {
@@ -184,7 +207,7 @@ const selectForm = async (form) => {
       ...CHERRIM_SUNSHINE_SPRITES,
     }
   }
-  // Showdown para todos (con fallback a Gen5)
+  // Showdown para todos (con home para casos que no tenga sprites)
   else if (shouldUseShowdown(pokemonName)) {
     const showdownSprites = getShowdownSpritesWithFallback(pokemonName)
     data.sprites = {
@@ -212,17 +235,18 @@ const selectForm = async (form) => {
         {{ formatPoke(pokemon.name) }}
       </h1>
 
-      <span
-        v-for="tipo in formattedTypes"
-        :key="tipo.tipo"
-        :class="tipo.color"
-        class="py-1 px-3 shadow-md rounded-full text-white front-semibold mr-1 mt-3"
-      >
-        {{ tipo.tipo }}
-      </span>
+      <div class="flex flex-wrap items-center gap-3 mt-3">
+        <!-- TIPOS -->
+        <span
+          v-for="tipo in formattedTypes"
+          :key="tipo.tipo"
+          :class="tipo.color"
+          class="py-1 px-3 shadow-md rounded-full text-white font-semibold"
+        >
+          {{ tipo.tipo }}
+        </span>
 
-      <!-- BOTON SHINY -->
-      <div class="mt-4 flex items-center gap-4">
+        <!-- BOTON SHINY -->
         <button
           @click="toggleShiny"
           :class="
@@ -235,7 +259,7 @@ const selectForm = async (form) => {
           {{ isShiny ? 'Normal' : 'Shiny' }}
         </button>
       </div>
-
+      <br />
       <!-- ================= SPRITES ================= -->
       <div class="grid grid-cols-1 sm:grid-cols-2 place-items-center gap-1">
         <div class="text-center">
@@ -282,6 +306,15 @@ const selectForm = async (form) => {
           </button>
         </div>
       </div>
+
+      <!-- ================= EVOLUCIONES ================= -->
+      <!-- Usar el componente en lugar del código inline -->
+      
+      <EvolutionChain 
+        :evolutions="state.evolutions"
+        :current-pokemon="pokemon.name"
+        :on-go-to-evolution="goToEvolution"
+      />
 
       <!-- ================= STATS ================= -->
       <div class="mt-8">

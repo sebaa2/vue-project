@@ -1,3 +1,5 @@
+import { paradoxPokemon, hyphenPokemon } from './formatPoke'
+
 const checkSpriteExists = async (pokemonName) => {
   try {
     const showdownName = formatShowdownName(pokemonName)
@@ -19,6 +21,9 @@ export const formatShowdownName = (pokemonName) => {
   // Deoxys formas
   if (pokemonName === 'deoxys-normal') return 'deoxys'
 
+  if (hyphenPokemon.includes(pokemonName)) {
+    return pokemonName.replace(/-/g, '')
+  }
   // formas de urshifu
   if (pokemonName.startsWith('urshifu-')) {
     return pokemonName.replace('-single-strike', '').replace('-rapid-strike', '-rapidstrike')
@@ -32,10 +37,8 @@ export const formatShowdownName = (pokemonName) => {
   // Oricorio formas
   if (pokemonName === 'oricorio-pom-pom') return 'oricorio-pompom'
   if (pokemonName === 'oricorio-baile') return 'oricorio'
-  
 
   // formas de pikachu revisar en sprites y condiciones
-  // casos especiales
   if (pokemonName === 'pikachu-rock-star') return 'pikachu-rockstar'
   if (pokemonName === 'pikachu-pop-star') return 'pikachu-popstar'
 
@@ -49,8 +52,9 @@ export const formatShowdownName = (pokemonName) => {
   if (pokemonName === 'necrozma-dusk') return 'necrozma-duskmane'
 
   // pokes con sprites segun su sexo
-  if (pokemonName === 'indeedee-male') return 'indeedee'
-  if (pokemonName === 'indeedee-female') return 'indeedee-f'
+  if (pokemonName.endsWith('-male') || pokemonName.endsWith('-female')) {
+    return pokemonName.replace('-male', '').replace('-female', '-f')
+  }
   if (pokemonName === 'pyroar-male') return 'pyroar'
 
   //keldeo y ogerpon
@@ -58,24 +62,48 @@ export const formatShowdownName = (pokemonName) => {
   if (pokemonName.startsWith('ogerpon-') && pokemonName.includes('-mask')) {
     return pokemonName.replace('-mask', '')
   }
-
-  // condicion para los del futuro
-  if (pokemonName.startsWith('iron-')) {
-    return pokemonName.replace('iron-', 'iron').replace('-', '')
+  if (pokemonName === 'shaymin-land') return 'shaymin'
+  if (pokemonName.startsWith('darmanitan')) {
+    return pokemonName.replace('-standard', '').replace('-galar-zen', '-galarzen')
   }
+
+  if (pokemonName === 'minior-red-meteor') return 'minior'
+  if (pokemonName.startsWith('minior-') && pokemonName.endsWith('-meteor')) {
+    return pokemonName.replace('-meteor', '')
+  }
+
+  // familia
+  if (pokemonName === 'maushold-family-of-four') {
+    return 'maushold-four'
+  }
+  if (pokemonName === 'maushold-family-of-three') {
+    return 'maushold'
+  }
+
+  // condicion para paradojas
+
+  if (paradoxPokemon.includes(pokemonName)) {
+    return pokemonName.startsWith('iron-')
+      ? pokemonName.replace('iron-', 'iron').replace('-', '')
+      : pokemonName.replace('-', '')
+  }
+  // if (pokemonName.startsWith('iron-')) {
+  //   return pokemonName.replace('iron-', 'iron').replace('-', '')
+  // }
 
   // condiciones para tauros
   if (pokemonName.startsWith('tauros-paldea-')) {
     const parts = pokemonName.split('-')
-    // ['tauros', 'paldea', 'blaze', 'breed']
+
     return parts[0] + '-' + parts[1] + parts[2]
   }
+
   // Casos especiales para mega con dos formas
   if (DUAL_MEGA_FORMS.includes(pokemonName)) {
     return pokemonName.replace('-mega-', '-mega')
   }
 
-  // Pokes con una mega consrevar el nombre original con guion
+  // Pokes con una mega
   if (pokemonName.endsWith('-mega')) {
     return pokemonName // Retorna "venusaur-mega" tal cual
   }
@@ -165,7 +193,7 @@ export const getShowdownSpritesWithCheck = async (pokemonName) => {
   return sprites
 }
 
-// En showdownSprites.js - Agrega esta nueva función:
+// ahora si
 
 export const getShowdownSpritesWithFallback = (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
@@ -179,8 +207,8 @@ export const getShowdownSpritesWithFallback = (pokemonName) => {
     back_shiny: `${baseUrl}/ani-back-shiny/${showdownName}.gif`,
   }
 
-  // También preparamos los fallback de Gen5
-  const gen5Sprites = {
+  // También preparamos los fallback de home
+  const homeSprites = {
     front_default: `${baseUrl}/home/${showdownName}.png`,
     front_shiny: `${baseUrl}/home-shiny/${showdownName}.png`,
     back_default: `${baseUrl}/home/${showdownName}.png`,
@@ -190,6 +218,6 @@ export const getShowdownSpritesWithFallback = (pokemonName) => {
   // Devolvemos ambos y manejamos el error en el componente
   return {
     animated: animatedSprites,
-    fallback: gen5Sprites,
+    fallback: homeSprites,
   }
 }

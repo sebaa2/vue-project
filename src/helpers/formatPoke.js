@@ -232,6 +232,27 @@ export const paradoxPokemon = [
   'iron-crown',
 ]
 
+export const hyphenPokemon = [
+  'ho-oh',
+  'tapu-koko',
+  'tapu-lele',
+  'tapu-bulu',
+  'tapu-fini',
+  'type-null',
+  'wo-chien',
+  'chien-pao',
+  'ting-lu',
+  'chi-yu',
+  'jangmo-o',
+  'hakamo-o',
+  'kommo-o',
+  'mr-mime',
+  'mr-rime',
+  'mime-jr',
+  'porygon-z'
+]
+
+
 // Función que devuelve si es paradoja
 export function isParadoja(name) {
   return paradoxPokemon.includes(name)
