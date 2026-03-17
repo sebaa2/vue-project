@@ -3,7 +3,8 @@ import { useRoute } from 'vue-router'
 import { reactive, toRefs, computed, ref, onMounted, watch, nextTick } from 'vue'
 import BarChar from '../components/BarChar.vue'
 import RadarChar from '../components/RadarChar.vue'
-import EvolutionChain from '../components/EvolutionChain.vue' // 👈 IMPORTAR COMPONENTE
+import EvolutionChain from '../components/EvolutionChain.vue'
+import EeveeEvolutions from '../components/EeveeEvolutions.vue' // 👈 IMPORTAR COMPONENTE
 import notFound from '../assets/images/no_found.png'
 import { formatTipos } from '../config/arrayTipo.js'
 import { columns } from '../config/configuracionTabla.js'
@@ -99,7 +100,7 @@ const getData = async () => {
       ...CHERRIM_SUNSHINE_SPRITES,
     }
   }
-  // Para Pokémon que deben usar Showdown (con fallback home)
+  // Para Pokémon que deben usar Showdown (con fallback a Gen5)
   else if (shouldUseShowdown(pokemonName)) {
     // Guardamos ambos tipos de sprites
     const showdownSprites = getShowdownSpritesWithFallback(pokemonName)
@@ -207,7 +208,7 @@ const selectForm = async (form) => {
       ...CHERRIM_SUNSHINE_SPRITES,
     }
   }
-  // Showdown para todos (con home para casos que no tenga sprites)
+  // Showdown para todos (con home para casos que no tenga)
   else if (shouldUseShowdown(pokemonName)) {
     const showdownSprites = getShowdownSpritesWithFallback(pokemonName)
     data.sprites = {
@@ -309,8 +310,27 @@ const selectForm = async (form) => {
 
       <!-- ================= EVOLUCIONES ================= -->
       <!-- Usar el componente en lugar del código inline -->
-      
-      <EvolutionChain 
+      <EeveeEvolutions
+        :evolutions="state.evolutions"
+        :current-pokemon="pokemon.name"
+        :on-go-to-evolution="goToEvolution"
+      />
+
+      <!-- Componente normal para el resto (ya no needed porque EeveeEvolutions solo se muestra para familia Eevee) -->
+      <EvolutionChain
+        v-if="
+          ![
+            'eevee',
+            'vaporeon',
+            'jolteon',
+            'flareon',
+            'espeon',
+            'umbreon',
+            'leafeon',
+            'glaceon',
+            'sylveon',
+          ].includes(pokemon?.name)
+        "
         :evolutions="state.evolutions"
         :current-pokemon="pokemon.name"
         :on-go-to-evolution="goToEvolution"
