@@ -26,112 +26,126 @@ export const formatShowdownName = (pokemonName) => {
     return pokemonName
   }
 
-  // Deoxys formas
-  if (pokemonName === 'deoxys-normal') return 'deoxys'
-
-  if (hyphenPokemon.includes(pokemonName)) {
-    return pokemonName.replace(/-/g, '')
-  }
-  // formas de urshifu
-  if (pokemonName.startsWith('urshifu-')) {
-    return pokemonName.replace('-single-strike', '').replace('-rapid-strike', '-rapidstrike')
-  }
-
-  // Formas Incarnate de los genios
-  if (pokemonName.endsWith('-incarnate')) {
-    return pokemonName.replace('-incarnate', '')
-  }
-
-  // Oricorio formas
-  if (pokemonName === 'oricorio-pom-pom') return 'oricorio-pompom'
-  if (pokemonName === 'oricorio-baile') return 'oricorio'
-
-  // formas de pikachu revisar en sprites y condiciones
-  if (pokemonName === 'pikachu-rock-star') return 'pikachu-rockstar'
-  if (pokemonName === 'pikachu-pop-star') return 'pikachu-popstar'
-
-  // quitar -cap
-  if (pokemonName.startsWith('pikachu-') && pokemonName.endsWith('-cap')) {
-    return pokemonName.replace('-cap', '')
-  }
- 
-
-  //como te odio
-  if (pokemonName.startsWith('toxtricity')) {
-    const isGmax = pokemonName.endsWith('-gmax')
-
-    if (isGmax) {
-      return 'toxtricity-gmax'
-    }
-
-    return pokemonName.replace('-amped', '').replace('-low-key', '-lowkey')
-  }
-
-  // condiciones para necrozma, buscar ajustes para esto
-  if (pokemonName === 'necrozma-dawn') return 'necrozma-dawnwings'
-  if (pokemonName === 'necrozma-dusk') return 'necrozma-duskmane'
-
-  // pokes con sprites segun su sexo
-  if (pokemonName.endsWith('-male') || pokemonName.endsWith('-female')) {
-    return pokemonName.replace('-male', '').replace('-female', '-f')
-  }
-  if (pokemonName === 'pyroar-male') return 'pyroar'
-  // Nidoran casos especiales (sin guion para Showdown)
+  // GEN 1
   if (pokemonName === 'nidoran-f') return 'nidoranf'
   if (pokemonName === 'nidoran-m') return 'nidoranm'
 
-  //keldeo y ogerpon
-  if (pokemonName === 'keldeo-ordinary') return 'keldeo'
-  if (pokemonName.startsWith('ogerpon-') && pokemonName.includes('-mask')) {
-    return pokemonName.replace('-mask', '')
-  }
-  if (pokemonName === 'shaymin-land') return 'shaymin'
-  if (pokemonName.startsWith('darmanitan')) {
-    return pokemonName.replace('-standard', '').replace('-galar-zen', '-galarzen')
-  }
+  // GEN 2
+  if (pokemonName === 'unown') return pokemonName.replace(/-/g, '')
 
+  // GEN 3
+  if (pokemonName === 'deoxys-normal') return 'deoxys'
+
+  // GEN 4
+  if (pokemonName === 'shaymin-land') return 'shaymin'
+
+  // GEN 5
+  if (pokemonName === 'darmanitan-standard') return 'darmanitan'
+  if (pokemonName === 'darmanitan-galar-zen') return 'darmanitan-galarzen'
+
+  // GEN 6
+  if (pokemonName === 'pyroar-male') return 'pyroar'
+
+  // GEN 7
+  // Oricorio
+  if (pokemonName === 'oricorio-pom-pom') return 'oricorio-pompom'
+  if (pokemonName === 'oricorio-baile') return 'oricorio'
+
+  // Minior
   if (pokemonName === 'minior-red-meteor') return 'minior'
   if (pokemonName.startsWith('minior-') && pokemonName.endsWith('-meteor')) {
     return pokemonName.replace('-meteor', '')
   }
 
-  if (pokemonName === 'morpeko-full-belly') return 'morpeko'
-  if (pokemonName === 'morpeko-full-belly') return 'morpeko-hangry'
-  // familia
-  if (pokemonName === 'maushold-family-of-four') {
-    return 'maushold-four'
-  }
-  if (pokemonName === 'maushold-family-of-three') {
-    return 'maushold'
-  }
-  if (pokemonName === 'mimikyu-disguised'){
-    return 'mimikyu'
+  // Necrozma
+  if (pokemonName === 'necrozma-dawn') return 'necrozma-dawnwings'
+  if (pokemonName === 'necrozma-dusk') return 'necrozma-duskmane'
+
+  // GEN 8
+  // Urshifu
+  if (pokemonName.startsWith('urshifu-')) {
+    return pokemonName.replace('-single-strike', '').replace('-rapid-strike', '-rapidstrike')
   }
 
-  // condicion para paradojas
+  // Toxtricity
+  if (pokemonName.startsWith('toxtricity')) {
+    if (pokemonName.endsWith('-gmax')) return 'toxtricity-gmax'
+    return pokemonName.replace('-amped', '').replace('-low-key', '-lowkey')
+  }
+
+  // Morpeko (FIX bug)
+  if (pokemonName === 'morpeko-full-belly') return 'morpeko'
+  if (pokemonName === 'morpeko-hangry') return 'morpeko-hangry'
+
+  // Darmanitan ya manejado arriba
+
+  // GEN 9
+  // Maushold
+  if (pokemonName === 'maushold-family-of-four') return 'maushold-four'
+  if (pokemonName === 'maushold-family-of-three') return 'maushold'
+
+  if (pokemonName === 'dudunsparce-two-segment') {
+    return 'dudunsparce'
+  }
+  if (pokemonName === 'dudunsparce-three-segment') return 'dudunsparce-threesegment'
+
+  // Ogerpon
+  if (pokemonName.startsWith('ogerpon-') && pokemonName.includes('-mask')) {
+    return pokemonName.replace('-mask', '')
+  }
+
+  // Paradox
   if (paradoxPokemon.includes(pokemonName)) {
     return pokemonName.startsWith('iron-')
       ? pokemonName.replace('iron-', 'iron').replace('-', '')
       : pokemonName.replace('-', '')
   }
 
-  // condiciones para tauros
+  // Tauros Paldea
   if (pokemonName.startsWith('tauros-paldea-')) {
     const parts = pokemonName.split('-')
     return parts[0] + '-' + parts[1] + parts[2]
   }
 
-  // Casos especiales para mega con dos formas
+  // GENERALES (todas las generaciones)
+
+  // Pikachu
+  if (pokemonName === 'pikachu-rock-star') return 'pikachu-rockstar'
+  if (pokemonName === 'pikachu-pop-star') return 'pikachu-popstar'
+  if (pokemonName.startsWith('pikachu-') && pokemonName.endsWith('-cap')) {
+    return pokemonName.replace('-cap', '')
+  }
+
+  // Keldeo
+  if (pokemonName === 'keldeo-ordinary') return 'keldeo'
+
+  // Mimikyu
+  if (pokemonName === 'mimikyu-disguised') return 'mimikyu'
+
+  // Formas incarnate
+  if (pokemonName.endsWith('-incarnate')) {
+    return pokemonName.replace('-incarnate', '')
+  }
+
+  // Género
+  if (pokemonName.endsWith('-male') || pokemonName.endsWith('-female')) {
+    return pokemonName.replace('-male', '').replace('-female', '-f')
+  }
+
+  // Hyphen general
+  if (hyphenPokemon.includes(pokemonName)) {
+    return pokemonName.replace(/-/g, '')
+  }
+
+  // Megas
   if (DUAL_MEGA_FORMS.includes(pokemonName)) {
     return pokemonName.replace('-mega-', '-mega')
   }
-
-  // Pokes con una mega
   if (pokemonName.endsWith('-mega')) {
     return pokemonName
   }
 
-  // Para otros Pokémon, mantener el nombre original
+  // DEFAULT
   return pokemonName
 }
 

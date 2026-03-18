@@ -16,14 +16,13 @@ import {
   CHERRIM_SUNSHINE_SPRITES,
 } from '../helpers/showdownSprites.js'
 import { getEvolutionChain } from '../helpers/getEvo.js'
+import notFound from '../assets/images/no_found.png'
 
 import DataTable from 'datatables.net-vue3'
 import DataTablesLib from 'datatables.net'
 import 'datatables.net-responsive'
 import 'datatables.net-responsive-dt/css/responsive.dataTables.css'
 import { getMoves } from '../helpers/getMoves.js'
-import notFound from '../assets/images/no_found.png'
-
 DataTable.use(DataTablesLib)
 
 const state = reactive({
@@ -84,16 +83,41 @@ const currentSprite = computed(() => {
   return sprites
 })
 
+// Función para obtener el ID de la especie base
+const getBaseSpeciesId = async (pokemonName, currentId) => {
+  // Si el nombre no tiene guión, no es forma regional
+  if (!pokemonName.includes('-')) {
+    return currentId
+  }
+
+  try {
+    // Extraer el nombre base (antes del primer guión)
+    const baseName = pokemonName.split('-')[0]
+
+    // Intentar obtener la especie por el nombre base
+    const speciesRes = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${baseName}`)
+    if (speciesRes.ok) {
+      const speciesData = await speciesRes.json()
+      console.log(`Especie base para ${pokemonName}: ${baseName} (ID: ${speciesData.id})`)
+      return speciesData.id
+    }
+  } catch (error) {
+    console.error('Error obteniendo especie base:', error)
+  }
+
+  // Si todo falla, devolver el ID original
+  return currentId
+}
+
 const getData = async () => {
   let pokemonData = await getPokemon(route.params.id)
 
   // Resetear el estado de fallback
   useFallbackSprite.value = false
 
-  // Aplicar sprites de Showdown
   const pokemonName = pokemonData.name
 
-  // Caso especial para Cherrim Sunshine
+  // Aplicar sprites de Showdown
   if (pokemonName === 'cherrim-sunshine') {
     pokemonData.sprites = {
       ...pokemonData.sprites,
@@ -108,7 +132,7 @@ const getData = async () => {
       ...pokemonData.sprites,
       ...showdownSprites.animated, // sprites animados
     }
-    
+
     pokemonData._fallbackSprites = showdownSprites.fallback
     console.log(`Sprites Showdown para: ${pokemonName}`, showdownSprites)
   }
@@ -120,28 +144,40 @@ const getData = async () => {
   state.pokemon = pokemonData
   console.log('state.pokemon', state.pokemon)
 
-  state.forms = await getSpecies(route.params.id)
-  console.log('state.forms', state.forms)
-  
-  // console.log()
+  // Obtener el ID de la especie base para formas regionales
+  const speciesId = await getBaseSpeciesId(pokemonName, route.params.id)
 
-  state.evolutions = await getEvolutionChain(route.params.id)
+  // Obtener formas usando el ID de la especie base
+  state.forms = await getSpecies(speciesId)
+  console.log('state.forms', state.forms)
+
+  // Obtener evoluciones usando el ID de la especie base
+  state.evolutions = await getEvolutionChain(speciesId)
   console.log('state.evolutions', state.evolutions)
 
   movesPokemon.value = await getMoves(state.pokemon.moves)
 }
 
 const goToEvolution = async (evolutionName) => {
-  // Obtener el ID
-  const pokemonRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${evolutionName}/`)
-  const pokemonData = await pokemonRes.json()
+  let pokemonId
+  
+  // Caso especial para Urshifu y sus formas
+  if (evolutionName === 'urshifu' || 
+      evolutionName === 'urshifu-rapid-strike' || 
+      evolutionName === 'urshifu-single-strike') {
+    pokemonId = 892 // ID de Urshifu (estilo individual)
+    console.log(`Usando ID especial para Urshifu: ${pokemonId}`)
+  } else {
+    // Para el resto de Pokémon, obtener el ID normalmente
+    const pokemonRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${evolutionName}/`)
+    const pokemonData = await pokemonRes.json()
+    pokemonId = pokemonData.id
+  }
 
   // Cambiar la ruta modificando el parámetro
-  route.params.id = pokemonData.id
+  route.params.id = pokemonId
   await getData()
 }
-
-
 watch(route, async () => {
   await getData()
   await nextTick()
@@ -198,7 +234,7 @@ const selectForm = async (form) => {
   // Resetear el estado de fallback
   useFallbackSprite.value = false
 
-  // Caso especial para Cherrim Sunshine
+  // Aplicar sprites
   if (pokemonName === 'cherrim-sunshine') {
     data.sprites = {
       ...data.sprites,
@@ -223,6 +259,12 @@ const selectForm = async (form) => {
   state.pokemon = data
   activeForm.value = pokemonName
   console.log('activeForm.value', activeForm.value)
+
+  // Obtener el ID de la especie base para las formas regionales
+  const speciesId = await getBaseSpeciesId(pokemonName, data.id)
+
+  // Actualizar las formas usando el ID de la especie base
+  state.forms = await getSpecies(speciesId)
 }
 </script>
 

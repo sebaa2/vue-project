@@ -34,121 +34,37 @@ const getLevelText = (index) => {
   }
 }
 
-// Formatear detalles del método de evolución
-const formatEvolutionDetails = (details) => {
-  if (!details || details.length === 0) return null
-
-  const detail = details[0] // Tomamos el primer detalle (normalmente el más relevante)
-  const methods = []
-
-  // Métodos comunes de evolución
-  if (detail.min_level) {
-    methods.push(`Nivel ${detail.min_level}`)
+// Obtener nombre para mostrar (con indicador regional)
+const getDisplayName = (evolution) => {
+  // Si ya tenemos un displayName predefinido (de getEvo.js), usarlo
+  if (evolution.displayName) {
+    return evolution.displayName
   }
 
-  if (detail.item) {
-    const itemName = detail.item.name.replace(/-/g, ' ')
-    methods.push(`Usando ${itemName}`)
-  }
+  const baseName = formatPoke(evolution.name)
 
-  if (detail.trigger) {
-    switch (detail.trigger.name) {
-      case 'level-up':
-        if (!detail.min_level) methods.push('Subir de nivel')
-        break
-      case 'trade':
-        methods.push('Intercambiar')
-        break
-      case 'use-item':
-        if (!detail.item) methods.push('Usar objeto')
-        break
-      case 'shed':
-        methods.push('Evolución especial')
-        break
-      case 'spin':
-        methods.push('Girar')
-        break
-      case 'tower-of-darkness':
-        methods.push('Torre Oscuridad')
-        break
-      case 'tower-of-waters':
-        methods.push('Torre Agua')
-        break
-      case 'three-critical-hits':
-        methods.push('3 golpes críticos')
-        break
-      case 'take-damage':
-        methods.push('Recibir daño')
-        break
-      case 'other':
-        methods.push('Método especial')
-        break
-    }
-  }
+  if (evolution.name.includes('-alola')) return `${baseName.replace('-alola', '')} (Alola)`
+  if (evolution.name.includes('-galar')) return `${baseName.replace('-galar', '')} (Galar)`
+  if (evolution.name.includes('-hisui')) return `${baseName.replace('-hisui', '')} (Hisui)`
+  if (evolution.name.includes('-paldea')) return `${baseName.replace('-paldea', '')} (Paldea)`
 
-  // Condiciones adicionales
-  if (detail.location) {
-    methods.push(`en ${detail.location.name.replace(/-/g, ' ')}`)
-  }
+  return baseName
+}
 
-  if (detail.held_item) {
-    const heldItemName = detail.held_item.name.replace(/-/g, ' ')
-    methods.push(`con ${heldItemName}`)
-  }
-
-  if (detail.time_of_day) {
-    methods.push(`de ${detail.time_of_day}`)
-  }
-
-  if (detail.known_move) {
-    const moveName = detail.known_move.name.replace(/-/g, ' ')
-    methods.push(`sabiendo ${moveName}`)
-  }
-
-  if (detail.known_move_type) {
-    const typeName = detail.known_move_type.name
-    methods.push(`con movimiento de tipo ${typeName}`)
-  }
-
-  if (detail.min_happiness) {
-    methods.push(`felicidad ≥ ${detail.min_happiness}`)
-  }
-
-  if (detail.min_beauty) {
-    methods.push(`belleza ≥ ${detail.min_beauty}`)
-  }
-
-  if (detail.min_affection) {
-    methods.push(`afecto ≥ ${detail.min_affection}`)
-  }
-
-  if (detail.relative_physical_stats) {
-    if (detail.relative_physical_stats === 1) {
-      methods.push('Ataque > Defensa')
-    } else if (detail.relative_physical_stats === -1) {
-      methods.push('Ataque < Defensa')
-    } else if (detail.relative_physical_stats === 0) {
-      methods.push('Ataque = Defensa')
-    }
-  }
-
-  if (detail.gender) {
-    methods.push(detail.gender === 1 ? '♀ Hembra' : '♂ Macho')
-  }
-
-  if (detail.overworld_rain) {
-    methods.push('lloviendo')
-  }
-
-  if (detail.turn_upside_down) {
-    methods.push('dispositivo boca abajo')
-  }
-
-  return methods.length > 0 ? methods.join(' · ') : null
+// Obtener la región de una forma
+const getRegionFromForm = (formName) => {
+  if (formName.includes('-alola')) return 'Alola'
+  if (formName.includes('-galar')) return 'Galar'
+  if (formName.includes('-hisui')) return 'Hisui'
+  if (formName.includes('-paldea')) return 'Paldea'
+  return 'Regional'
 }
 
 // Obtener sprite de evolución
-const getEvolutionSprite = (evolution) => {
+const getEvolutionSprite = (evolution, formName = null) => {
+  if (formName && evolution.form_sprites?.[formName]?.front_default) {
+    return evolution.form_sprites[formName].front_default
+  }
   if (evolution.sprites?.front_default) {
     return evolution.sprites.front_default
   }
@@ -156,6 +72,37 @@ const getEvolutionSprite = (evolution) => {
     return evolution.sprite
   }
   return notFound
+}
+
+// Obtener tipos de una forma específica
+const getFormTypes = (evolution, formName) => {
+  if (formName && evolution.form_types?.[formName]) {
+    return evolution.form_types[formName]
+  }
+  return evolution.types || []
+}
+
+// Determinar si un método es regional
+const isRegionalMethod = (method) => {
+  return (
+    method &&
+    (method.includes('Alola') ||
+      method.includes('Galar') ||
+      method.includes('Hisui') ||
+      method.includes('Paldea') ||
+      method === 'Forma Regional')
+  )
+}
+
+// Obtener color del badge según región
+const getRegionBadgeColor = (region) => {
+  const colors = {
+    Alola: 'bg-yellow-500',
+    Galar: 'bg-red-500',
+    Hisui: 'bg-blue-500',
+    Paldea: 'bg-green-500',
+  }
+  return colors[region] || 'bg-purple-600'
 }
 </script>
 
@@ -172,83 +119,67 @@ const getEvolutionSprite = (evolution) => {
             {{ getLevelText(levelIndex) }}
           </p>
 
-          <!-- Múltiples evoluciones -->
-          <template v-if="Array.isArray(level)">
+          <!-- Múltiples evoluciones en el mismo nivel -->
+          <div class="flex flex-wrap justify-center gap-4">
             <div
               v-for="evolution in level"
               :key="evolution.name"
-              @click="onGoToEvolution(evolution.name)"
-              :class="[
-                'flex flex-col items-center p-2 mb-2 rounded-lg cursor-pointer transition-colors',
-                isCurrentPokemon(evolution.name)
-                  ? 'bg-blue-100 ring-1 ring-blue-500'
-                  : 'hover:bg-gray-100',
-              ]"
+              class="flex flex-col items-center"
             >
-              <img
-                :src="getEvolutionSprite(evolution)"
-                :alt="evolution.name"
-                class="w-16 h-16 sm:w-20 sm:h-20"
-                @error="(e) => (e.target.src = notFound)"
-              />
-              <p class="text-xs font-medium mt-1">{{ formatPoke(evolution.name) }}</p>
-              <div class="flex gap-1 mt-1 flex-wrap justify-center">
-                <span
-                  v-for="tipo in evolution.types"
-                  :key="tipo"
-                  :class="formatTipos(tipo).color"
-                  class="text-[10px] px-1.5 py-0.5 rounded-full text-white"
+              <!-- Forma original y sus regionales -->
+              <div class="flex flex-col gap-2">
+                <!-- Forma original o regional -->
+                <div
+                  @click="onGoToEvolution(evolution.name)"
+                  :class="[
+                    'flex flex-col items-center p-2 rounded-lg cursor-pointer transition-colors relative',
+                    isCurrentPokemon(evolution.name)
+                      ? 'bg-blue-100 ring-2 ring-blue-500'
+                      : 'hover:bg-gray-100',
+                  ]"
                 >
-                  {{ formatTipos(tipo).tipo }}
-                </span>
+                  <img
+                    :src="getEvolutionSprite(evolution)"
+                    :alt="evolution.name"
+                    class="w-20 h-20 sm:w-24 sm:h-24"
+                    @error="(e) => (e.target.src = notFound)"
+                  />
+                  <p class="text-xs font-medium mt-1">{{ getDisplayName(evolution) }}</p>
+                  <div class="flex gap-1 mt-1 flex-wrap justify-center">
+                    <span
+                      v-for="tipo in evolution.types"
+                      :key="tipo"
+                      :class="formatTipos(tipo).color"
+                      class="text-[10px] px-1.5 py-0.5 rounded-full text-white"
+                    >
+                      {{ formatTipos(tipo).tipo }}
+                    </span>
+                  </div>
+
+                  <!-- Badge de forma regional -->
+                  <span
+                    v-if="evolution.isRegional"
+                    class="absolute -top-2 -right-2 text-white text-[10px] px-2 py-0.5 rounded-full shadow-md"
+                    :class="getRegionBadgeColor(evolution.region)"
+                  >
+                    {{ evolution.region }}
+                  </span>
+                </div>
+
+                <!-- Método de evolución (solo si no es el primer nivel) -->
+                <div v-if="evolution.method && levelIndex > 0" class="mt-1 text-center">
+                  <p
+                    :class="[
+                      'text-[10px] px-2 py-1 rounded-full',
+                      isRegionalMethod(evolution.method)
+                        ? getRegionBadgeColor(evolution.region) + ' text-white'
+                        : 'text-gray-500 italic bg-gray-100',
+                    ]"
+                  >
+                    {{ evolution.method }}
+                  </p>
+                </div>
               </div>
-
-              <!-- Mostrar método de evolución -->
-              <div
-                v-if="evolution.evolution_details && evolution.evolution_details.length > 0"
-                class="mt-1"
-              >
-                <p class="text-[10px] text-gray-500 italic">
-                  {{ formatEvolutionDetails(evolution.evolution_details) }}
-                </p>
-              </div>
-            </div>
-          </template>
-
-          <!-- Una evolución -->
-          <div
-            v-else
-            @click="onGoToEvolution(level.name)"
-            :class="[
-              'flex flex-col items-center p-2 rounded-lg cursor-pointer transition-colors',
-              isCurrentPokemon(level.name)
-                ? 'bg-blue-100 ring-1 ring-blue-500'
-                : 'hover:bg-gray-100',
-            ]"
-          >
-            <img
-              :src="getEvolutionSprite(level)"
-              :alt="level.name"
-              class="w-16 h-16 sm:w-20 sm:h-20"
-              @error="(e) => (e.target.src = notFound)"
-            />
-            <p class="text-xs font-medium mt-1">{{ formatPoke(level.name) }}</p>
-            <div class="flex gap-1 mt-1 flex-wrap justify-center">
-              <span
-                v-for="tipo in level.types"
-                :key="tipo"
-                :class="formatTipos(tipo).color"
-                class="text-[10px] px-1.5 py-0.5 rounded-full text-white"
-              >
-                {{ formatTipos(tipo).tipo }}
-              </span>
-            </div>
-
-            <!-- Mostrar método de evolución -->
-            <div v-if="level.evolution_details && level.evolution_details.length > 0" class="mt-1">
-              <p class="text-[10px] text-gray-500 italic">
-                {{ formatEvolutionDetails(level.evolution_details) }}
-              </p>
             </div>
           </div>
         </div>
@@ -256,7 +187,7 @@ const getEvolutionSprite = (evolution) => {
         <!-- Flecha entre niveles (excepto después del último) -->
         <div
           v-if="levelIndex < evolutions.length - 1"
-          class="text-3xl sm:text-4xl text-gray-400 font-bold"
+          class="text-3xl sm:text-4xl text-gray-400 font-bold self-center"
           style="margin-top: 1.5rem"
         >
           →
