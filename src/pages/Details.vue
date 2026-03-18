@@ -4,8 +4,7 @@ import { reactive, toRefs, computed, ref, onMounted, watch, nextTick } from 'vue
 import BarChar from '../components/BarChar.vue'
 import RadarChar from '../components/RadarChar.vue'
 import EvolutionChain from '../components/EvolutionChain.vue'
-import EeveeEvolutions from '../components/EeveeEvolutions.vue' // 👈 IMPORTAR COMPONENTE
-import notFound from '../assets/images/no_found.png'
+import EeveeEvolutions from '../components/EeveeEvolutions.vue'
 import { formatTipos } from '../config/arrayTipo.js'
 import { columns } from '../config/configuracionTabla.js'
 import { getPokemon } from '../helpers/getPokemon.js'
@@ -35,7 +34,7 @@ const state = reactive({
 })
 const movesPokemon = ref([])
 
-// Estado para controlar si estamos usando fallback de Gen5
+// Estado para controlar si estamos usando fallback de home
 const useFallbackSprite = ref(false)
 
 function filterStats() {
@@ -53,7 +52,7 @@ function filterTypes() {
 const route = useRoute()
 const { pokemon, stats, types, formattedTypes, moves } = toRefs(state)
 
-// Manejador de error de imagen mejorado
+// error para el uso de imagen
 const handleImageError = (e) => {
   const pokemonName = state.pokemon?.name
 
@@ -66,7 +65,6 @@ const handleImageError = (e) => {
   }
 }
 
-// Computed para obtener el sprite actual según el estado de fallback
 const currentSprite = computed(() => {
   if (!state.pokemon) return {}
 
@@ -90,7 +88,7 @@ const getData = async () => {
   // Resetear el estado de fallback
   useFallbackSprite.value = false
 
-  // Aplicar sprites de Showdown al Pokémon base
+  // Aplicar sprites de Showdown
   const pokemonName = pokemonData.name
 
   // Caso especial para Cherrim Sunshine
@@ -106,9 +104,9 @@ const getData = async () => {
     const showdownSprites = getShowdownSpritesWithFallback(pokemonName)
     pokemonData.sprites = {
       ...pokemonData.sprites,
-      ...showdownSprites.animated, // Por defecto usamos animados
+      ...showdownSprites.animated, // sprites animados
     }
-    // Guardamos los fallback para usarlos si es necesario
+    
     pokemonData._fallbackSprites = showdownSprites.fallback
     console.log(`Sprites Showdown para: ${pokemonName}`, showdownSprites)
   }
@@ -122,6 +120,8 @@ const getData = async () => {
 
   state.forms = await getSpecies(route.params.id)
   console.log('state.forms', state.forms)
+  
+  // console.log()
 
   state.evolutions = await getEvolutionChain(route.params.id)
   console.log('state.evolutions', state.evolutions)
@@ -129,9 +129,8 @@ const getData = async () => {
   movesPokemon.value = await getMoves(state.pokemon.moves)
 }
 
-// 👈 ESTA FUNCIÓN SE PASA AL COMPONENTE
 const goToEvolution = async (evolutionName) => {
-  // Obtener el ID del Pokémon desde su nombre
+  // Obtener el ID
   const pokemonRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${evolutionName}/`)
   const pokemonData = await pokemonRes.json()
 
@@ -140,10 +139,6 @@ const goToEvolution = async (evolutionName) => {
   await getData()
 }
 
-// Función para verificar si un Pokémon es la evolución actual
-const isCurrentPokemon = (evolutionName) => {
-  return state.pokemon?.name === evolutionName
-}
 
 watch(route, async () => {
   await getData()
@@ -309,14 +304,14 @@ const selectForm = async (form) => {
       </div>
 
       <!-- ================= EVOLUCIONES ================= -->
-      <!-- Usar el componente en lugar del código inline -->
+      <!-- componente importado para las evos y de paso para eevee -->
       <EeveeEvolutions
         :evolutions="state.evolutions"
         :current-pokemon="pokemon.name"
         :on-go-to-evolution="goToEvolution"
       />
 
-      <!-- Componente normal para el resto (ya no needed porque EeveeEvolutions solo se muestra para familia Eevee) -->
+      <!-- Componente normal para el resto de Pokémon -->
       <EvolutionChain
         v-if="
           ![
@@ -329,13 +324,22 @@ const selectForm = async (form) => {
             'leafeon',
             'glaceon',
             'sylveon',
+            'eevee-gmax',
+            'eevee-starter',
+            'vaporeon-gmax',
+            'jolteon-gmax',
+            'flareon-gmax',
+            'espeon-gmax',
+            'umbreon-gmax',
+            'leafeon-gmax',
+            'glaceon-gmax',
+            'sylveon-gmax',
           ].includes(pokemon?.name)
         "
         :evolutions="state.evolutions"
         :current-pokemon="pokemon.name"
         :on-go-to-evolution="goToEvolution"
       />
-
       <!-- ================= STATS ================= -->
       <div class="mt-8">
         <button

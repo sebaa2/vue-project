@@ -1,5 +1,8 @@
 import { paradoxPokemon, hyphenPokemon } from './formatPoke'
 
+// Pokémon que tienen 'mega' en su nombre pero no son mega evoluciones
+const POKEMON_WITH_MEGA_IN_NAME = ['meganium', 'yanmega']
+
 const checkSpriteExists = async (pokemonName) => {
   try {
     const showdownName = formatShowdownName(pokemonName)
@@ -13,11 +16,16 @@ const checkSpriteExists = async (pokemonName) => {
   }
 }
 
-// condiciones de limpieza para pokes con 2 megas
+// condiciones de limpieza de nombre para pokes con 2 megas
 const DUAL_MEGA_FORMS = ['charizard-mega-x', 'charizard-mega-y', 'mewtwo-mega-x', 'mewtwo-mega-y']
 
 //condiciones de nombres
 export const formatShowdownName = (pokemonName) => {
+  // Preservar nombres de Pokémon que contienen 'mega' pero no son mega evoluciones
+  if (POKEMON_WITH_MEGA_IN_NAME.includes(pokemonName)) {
+    return pokemonName
+  }
+
   // Deoxys formas
   if (pokemonName === 'deoxys-normal') return 'deoxys'
 
@@ -45,6 +53,17 @@ export const formatShowdownName = (pokemonName) => {
   // quitar -cap
   if (pokemonName.startsWith('pikachu-') && pokemonName.endsWith('-cap')) {
     return pokemonName.replace('-cap', '')
+  }
+
+  //como te odio
+  if (pokemonName.startsWith('toxtricity')) {
+    const isGmax = pokemonName.endsWith('-gmax')
+
+    if (isGmax) {
+      return 'toxtricity-gmax'
+    }
+
+    return pokemonName.replace('-amped', '').replace('-low-key', '-lowkey')
   }
 
   // condiciones para necrozma, buscar ajustes para esto
@@ -81,20 +100,15 @@ export const formatShowdownName = (pokemonName) => {
   }
 
   // condicion para paradojas
-
   if (paradoxPokemon.includes(pokemonName)) {
     return pokemonName.startsWith('iron-')
       ? pokemonName.replace('iron-', 'iron').replace('-', '')
       : pokemonName.replace('-', '')
   }
-  // if (pokemonName.startsWith('iron-')) {
-  //   return pokemonName.replace('iron-', 'iron').replace('-', '')
-  // }
 
   // condiciones para tauros
   if (pokemonName.startsWith('tauros-paldea-')) {
     const parts = pokemonName.split('-')
-
     return parts[0] + '-' + parts[1] + parts[2]
   }
 
@@ -105,7 +119,7 @@ export const formatShowdownName = (pokemonName) => {
 
   // Pokes con una mega
   if (pokemonName.endsWith('-mega')) {
-    return pokemonName // Retorna "venusaur-mega" tal cual
+    return pokemonName
   }
 
   // Para otros Pokémon, mantener el nombre original
@@ -113,6 +127,11 @@ export const formatShowdownName = (pokemonName) => {
 }
 
 export const shouldUseShowdown = (pokemonName) => {
+  // Pokémon que tienen 'mega' en su nombre pero no son mega evoluciones
+  if (POKEMON_WITH_MEGA_IN_NAME.includes(pokemonName)) {
+    return true
+  }
+
   // Cherrim sunshine siempre usa Showdown
   if (pokemonName === 'cherrim-sunshine') return true
 
@@ -122,9 +141,10 @@ export const shouldUseShowdown = (pokemonName) => {
   // Los mega con dos formas (mega-x, mega-y) usan Showdown
   if (DUAL_MEGA_FORMS.includes(pokemonName)) return true
 
-  // Excluir mega evoluciones
+  // Excluir mega evoluciones (pero no los que tienen 'mega' en su nombre)
   if (
     pokemonName.includes('mega') &&
+    !POKEMON_WITH_MEGA_IN_NAME.includes(pokemonName) &&
     !pokemonName.endsWith('-mega') &&
     !DUAL_MEGA_FORMS.includes(pokemonName)
   ) {
@@ -194,7 +214,6 @@ export const getShowdownSpritesWithCheck = async (pokemonName) => {
 }
 
 // ahora si
-
 export const getShowdownSpritesWithFallback = (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
   const baseUrl = 'https://play.pokemonshowdown.com/sprites'
