@@ -54,6 +54,7 @@ export const formatShowdownName = (pokemonName) => {
   if (pokemonName.startsWith('pikachu-') && pokemonName.endsWith('-cap')) {
     return pokemonName.replace('-cap', '')
   }
+ 
 
   //como te odio
   if (pokemonName.startsWith('toxtricity')) {
@@ -75,6 +76,9 @@ export const formatShowdownName = (pokemonName) => {
     return pokemonName.replace('-male', '').replace('-female', '-f')
   }
   if (pokemonName === 'pyroar-male') return 'pyroar'
+  // Nidoran casos especiales (sin guion para Showdown)
+  if (pokemonName === 'nidoran-f') return 'nidoranf'
+  if (pokemonName === 'nidoran-m') return 'nidoranm'
 
   //keldeo y ogerpon
   if (pokemonName === 'keldeo-ordinary') return 'keldeo'
@@ -91,12 +95,17 @@ export const formatShowdownName = (pokemonName) => {
     return pokemonName.replace('-meteor', '')
   }
 
+  if (pokemonName === 'morpeko-full-belly') return 'morpeko'
+  if (pokemonName === 'morpeko-full-belly') return 'morpeko-hangry'
   // familia
   if (pokemonName === 'maushold-family-of-four') {
     return 'maushold-four'
   }
   if (pokemonName === 'maushold-family-of-three') {
     return 'maushold'
+  }
+  if (pokemonName === 'mimikyu-disguised'){
+    return 'mimikyu'
   }
 
   // condicion para paradojas

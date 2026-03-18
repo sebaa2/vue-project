@@ -1,84 +1,87 @@
 export const getEvolutionChain = async (pokemonId) => {
   try {
-    // 1. Obtener la especie del Pokémon
+    // 1. Obtener especie y cadena evolutiva
     const speciesRes = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${pokemonId}/`)
     const speciesData = await speciesRes.json()
 
-    // 2. Obtener la URL de la cadena evolutiva
-    const evolutionUrl = speciesData.evolution_chain.url
-
-    // 3. Obtener los datos de la cadena evolutiva
-    const evolutionRes = await fetch(evolutionUrl)
+    const evolutionRes = await fetch(speciesData.evolution_chain.url)
     const evolutionData = await evolutionRes.json()
 
-    // 4. Procesar la cadena para agrupar por niveles
-    const evolutionByLevel = []
+    // 2. Función mejorada para método de evolución
+    const getMethod = async (details) => {
+      if (!details || details.length === 0) return null
 
-    // Función recursiva para recorrer la cadena y agrupar por nivel
-    function extractEvolutionsByLevel(chain, level = 0) {
-      // Si no existe el nivel, crearlo
-      if (!evolutionByLevel[level]) {
-        evolutionByLevel[level] = []
+      const d = details[0]
+
+      if (d.trigger?.name === 'level-up') {
+        if (d.min_level) return `Nivel ${d.min_level}`
+        if (d.min_happiness) return `Amistad`
+        if (d.time_of_day) return `Nivel (${d.time_of_day})`
+        return 'Nivel'
       }
+      
+      if (d.trigger?.name === 'use-item' && d.item) {
+        // Obtener nombre del item en español
+        try {
+          const itemRes = await fetch(d.item.url)
+          const itemData = await itemRes.json()
+          
+          // Buscar nombre en español
+          const spanishName = itemData.names.find(
+            name => name.language.name === 'es'
+          )?.name || itemData.name
+          
+          return `Usar: ${spanishName}`
+        } catch (error) {
+          return 'Objeto'
+        }
+      }
+      
+      if (d.trigger?.name === 'trade') return 'Intercambio'
+      return d.trigger?.name || '?'
+    }
 
-      // Agregar el Pokémon actual al nivel correspondiente
-      evolutionByLevel[level].push({
+    // 3. Procesar cadena
+    const result = []
+
+    const process = async (chain, level = 0, method = null) => {
+      if (!result[level]) result[level] = []
+
+      result[level].push({
         name: chain.species.name,
+        method: method,
         url: chain.species.url,
       })
 
-      // Procesar las siguientes evoluciones
-      if (chain.evolves_to && chain.evolves_to.length > 0) {
-        chain.evolves_to.forEach((evolution) => {
-          extractEvolutionsByLevel(evolution, level + 1)
-        })
+      // Procesar evoluciones de forma recursiva
+      for (const evo of chain.evolves_to) {
+        const evoMethod = await getMethod(evo.evolution_details)
+        await process(evo, level + 1, evoMethod)
       }
     }
 
-    extractEvolutionsByLevel(evolutionData.chain)
+    await process(evolutionData.chain)
 
-    // 5. Obtener datos básicos de cada Pokémon en la cadena (para sprites)
-    const evolutionDetails = await Promise.all(
-      evolutionByLevel.map(async (level, levelIndex) => {
-        // Si el nivel tiene múltiples Pokémon (eevee)
-        if (level.length > 1) {
-          const levelDetails = await Promise.all(
-            level.map(async (evo) => {
-              const id = evo.url.split('/').filter(Boolean).pop()
-              const pokemonRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`)
-              const pokemonData = await pokemonRes.json()
+    // 4. Obtener sprites
+    for (let level = 0; level < result.length; level++) {
+      for (let i = 0; i < result[level].length; i++) {
+        const evo = result[level][i]
+        const id = evo.url.split('/').slice(-2, -1)[0]
+        const pokemonRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`)
+        const pokemonData = await pokemonRes.json()
 
-              return {
-                name: evo.name,
-                id: id,
-                sprite: pokemonData.sprites.front_default,
-                types: pokemonData.types.map((t) => t.type.name),
-              }
-            }),
-          )
-          return levelDetails
+        result[level][i] = {
+          name: evo.name,
+          id: parseInt(id),
+          sprite: pokemonData.sprites.front_default,
+          method: evo.method,
         }
-        // Si es un solo Pokémon en el nivel
-        else {
-          const evo = level[0]
-          const id = evo.url.split('/').filter(Boolean).pop()
-          const pokemonRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`)
-          const pokemonData = await pokemonRes.json()
+      }
+    }
 
-          return {
-            name: evo.name,
-            id: id,
-            sprite: pokemonData.sprites.front_default,
-            types: pokemonData.types.map((t) => t.type.name),
-          }
-        }
-      }),
-    )
-
-    console.log('Evoluciones por nivel:', evolutionDetails)
-    return evolutionDetails
+    return result
   } catch (error) {
-    console.error('Error obteniendo cadena evolutiva:', error)
+    console.error('Error:', error)
     return []
   }
 }

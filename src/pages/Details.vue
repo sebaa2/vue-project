@@ -22,6 +22,8 @@ import DataTablesLib from 'datatables.net'
 import 'datatables.net-responsive'
 import 'datatables.net-responsive-dt/css/responsive.dataTables.css'
 import { getMoves } from '../helpers/getMoves.js'
+import notFound from '../assets/images/no_found.png'
+
 DataTable.use(DataTablesLib)
 
 const state = reactive({

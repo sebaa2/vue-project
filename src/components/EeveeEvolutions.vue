@@ -48,6 +48,8 @@ const SPECIAL_FORMS = [
   // Puedes agregar más formas especiales aquí
 ]
 
+
+
 // Verificar si es una forma especial
 const isSpecialForm = computed(() => {
   return SPECIAL_FORMS.includes(props.currentPokemon?.toLowerCase())
@@ -60,7 +62,7 @@ const isEeveeFamily = computed(() => {
 
 // Las 8 evoluciones de Eevee en orden específico para el grid
 const eeveeEvolutions = computed(() => {
-  console.log('Pokemon actual:', props.currentPokemon)
+
 
   // Si es una forma especial, no mostrar evoluciones
   if (isSpecialForm.value) return []
