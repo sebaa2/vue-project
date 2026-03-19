@@ -8,21 +8,34 @@ import RadarChar from '../components/RadarChar.vue'
 import EvolutionChain from '../components/EvolutionChain.vue'
 import EeveeEvolutions from '../components/EeveeEvolutions.vue'
 import { formatPoke } from '../helpers/formatPoke.js'
-import { columns } from '../config/configuracionTabla.js'
 import notFound from '../assets/images/no_found.png'
 
-import DataTable from 'datatables.net-vue3'
-import DataTablesLib from 'datatables.net'
-import 'datatables.net-responsive'
-import 'datatables.net-responsive-dt/css/responsive.dataTables.css'
-DataTable.use(DataTablesLib)
+// ── PrimeVue ──────────────────────────────────────────────────────────────────
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+
+import physicalIcon from '../assets/categories/physical.png'
+import specialIcon from '../assets/categories/special.png'
+import statusIcon from '../assets/categories/status.png'
+
+import { formatTipos } from '../config/arrayTipo'
 
 const route = useRoute()
 const store = usePokemonStore()
 
+const categoryIcon = {
+  physical: physicalIcon,
+  special: specialIcon,
+  status: statusIcon,
+}
+
+const categoryLabel = {
+  physical: 'Físico',
+  special: 'Especial',
+  status: 'Estado',
+}
 const {
   pokemon,
-  forms,
   evolutions,
   movesPokemon,
   isLoading,
@@ -35,10 +48,11 @@ const {
 
 const { loadPokemon, selectForm, goToEvolution, handleImageError } = store
 
-// UI local (no necesitan estar en el store)
+// UI local
 const isBarChart = ref(true)
 const isShiny = ref(false)
 const activeForm = ref(null)
+const expandedRows = ref({})
 
 const changeChart = () => (isBarChart.value = !isBarChart.value)
 const toggleShiny = () => (isShiny.value = !isShiny.value)
@@ -55,11 +69,32 @@ function formatName(name) {
   return parts.slice(1).map(capitalize).join(' ')
 }
 
+// Mapea el tipo de daño a severity de PrimeVue Tag
+function damageSeverity(damageClass) {
+  const map = { physical: 'danger', special: 'info', status: 'secondary' }
+  return map[damageClass?.toLowerCase()] ?? 'secondary'
+}
+
 const EEVEE_FAMILY = [
-  'eevee', 'vaporeon', 'jolteon', 'flareon', 'espeon', 'umbreon',
-  'leafeon', 'glaceon', 'sylveon', 'eevee-gmax', 'eevee-starter',
-  'vaporeon-gmax', 'jolteon-gmax', 'flareon-gmax', 'espeon-gmax',
-  'umbreon-gmax', 'leafeon-gmax', 'glaceon-gmax', 'sylveon-gmax',
+  'eevee',
+  'vaporeon',
+  'jolteon',
+  'flareon',
+  'espeon',
+  'umbreon',
+  'leafeon',
+  'glaceon',
+  'sylveon',
+  'eevee-gmax',
+  'eevee-starter',
+  'vaporeon-gmax',
+  'jolteon-gmax',
+  'flareon-gmax',
+  'espeon-gmax',
+  'umbreon-gmax',
+  'leafeon-gmax',
+  'glaceon-gmax',
+  'sylveon-gmax',
 ]
 
 watch(route, async () => {
@@ -74,7 +109,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <!-- Loading: el SweetAlert se encarga del overlay, este div evita contenido residual -->
   <div v-if="isLoading" class="min-h-screen" />
 
   <div v-else-if="pokemon">
@@ -84,7 +118,6 @@ onMounted(async () => {
       </h1>
 
       <div class="flex flex-wrap items-center gap-3 mt-3">
-        <!-- TIPOS -->
         <span
           v-for="tipo in formattedTypes"
           :key="tipo.tipo"
@@ -94,7 +127,6 @@ onMounted(async () => {
           {{ tipo.tipo }}
         </span>
 
-        <!-- BOTÓN SHINY -->
         <button
           @click="toggleShiny"
           :class="
@@ -178,20 +210,99 @@ onMounted(async () => {
         </button>
         <div
           v-if="formattedTypes.length"
-          :class="[formattedTypes[0].color, { 'flex justify-center items-center': !isBarChart }]"
+          :class="[
+            isBarChart ? formattedTypes[0].color : '',
+            { 'flex justify-center items-center': !isBarChart },
+          ]"
           class="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto rounded shadow-lg"
         >
           <component :is="isBarChart ? BarChar : RadarChar" :stats="stats" />
         </div>
       </div>
 
-      <!-- MOVIMIENTOS -->
+      <!-- MOVIMIENTOS ──  -->
       <div class="mt-8">
         <h2 class="text-2xl font-bold mb-4">Movimientos</h2>
-        <div class="w-full overflow-x-auto rounded-lg">
-          <DataTable :columns="columns" :data="movesPokemon" />
-        </div>
+
+        <DataTable
+          v-model:expandedRows="expandedRows"
+          :value="movesPokemon"
+          :paginator="true"
+          :rows="10"
+          :rowsPerPageOptions="[5, 10, 25, 50]"
+          sortMode="multiple"
+          removableSort
+          dataKey="name"
+          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown"
+          stripedRows
+        >
+          <!-- Tipo -->
+          <Column field="type" header="Tipo" sortable style="width: 10%">
+            <template #body="{ data }">
+              <span
+                :class="formatTipos(data.type).color"
+                class="px-2 py-1 rounded-full text-white text-sm"
+              >
+                {{ formatTipos(data.type).tipo }}
+              </span>
+            </template>
+          </Column>
+          <!-- Categoria -->
+          <Column field="category" header="Categoría" sortable style="width: 10%">
+            <template #body="{ data }">
+              <span
+                :class="{
+                  'bg-red-500': data.category === 'physical',
+                  'bg-blue-500': data.category === 'special',
+                  'bg-green-500': data.category === 'status',
+                  'bg-gray-400': !categoryIcon[data.category],
+                }"
+                class="px-2 py-1 rounded-full text-white inline-flex items-center gap-1 text-sm whitespace-nowrap"
+              >
+                <img
+                  v-if="categoryIcon[data.category]"
+                  :src="categoryIcon[data.category]"
+                  :alt="data.category"
+                  class="h-6 w-6 object-contain"
+                />
+                {{ categoryLabel[data.category] ?? data.category }}
+              </span>
+            </template>
+          </Column>
+
+          <!-- Movimiento -->
+          <Column field="name" header="Movimiento" sortable style="width: 10%">
+            <template #body="{ data }">
+              <span class="bg-gray-200 px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
+                {{ formatName(data.name) }}
+              </span>
+            </template>
+          </Column>
+
+          <!-- Poder -->
+          <Column field="power" header="Poder" sortable style="width: 10%">
+            <template #body="{ data }">
+              {{ data.power ?? '—' }}
+            </template>
+          </Column>
+
+          <!-- PP -->
+          <Column field="pp" header="PP" sortable style="width: 10%" />
+
+          <!-- Fila expandida -->
+          <template #expansion="{ data }">
+            <div class="px-4 py-3 bg-gray-50 rounded text-sm text-gray-700">
+              <p v-if="data.effect"><span class="font-semibold">Efecto: </span>{{ data.effect }}</p>
+              <p v-else class="italic text-gray-400">Sin descripción disponible.</p>
+            </div>
+          </template>
+
+          <template #empty>
+            <div class="text-center py-6 text-gray-500">No se encontraron movimientos.</div>
+          </template>
+        </DataTable>
       </div>
+      <!-- ── fin tabla -->
     </div>
   </div>
 

@@ -9,7 +9,7 @@ export function formatTipos(type) {
     water: { color: 'bg-blue-400', tipo: 'Agua' },
     bug: { color: 'bg-lime-400', tipo: 'Bicho' },
     // buscar mejor opcion para este color
-    normal: { color: 'bg-gray-500', tipo: 'Normal' },
+    normal: { color: 'bg-gray-400', tipo: 'Normal' },
     poison: { color: 'bg-purple-500', tipo: 'Veneno' },
     electric: { color: 'bg-yellow-400', tipo: 'Eléctrico' },
     // no usar 300 en el tipo electrico
