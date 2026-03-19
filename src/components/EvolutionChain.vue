@@ -34,9 +34,9 @@ const getLevelText = (index) => {
   }
 }
 
-// Obtener nombre para mostrar (con indicador regional)
+// Obtener nombre para mostrar (con indicador regional o de forma especial)
 const getDisplayName = (evolution) => {
-  // Si ya tenemos un displayName predefinido (de getEvo.js), usarlo
+  // Si ya tenemos un displayName predefinido, usarlo
   if (evolution.displayName) {
     return evolution.displayName
   }
@@ -51,58 +51,79 @@ const getDisplayName = (evolution) => {
   return baseName
 }
 
-// Obtener la región de una forma
+// Obtener la región o estilo de una forma
 const getRegionFromForm = (formName) => {
   if (formName.includes('-alola')) return 'Alola'
   if (formName.includes('-galar')) return 'Galar'
   if (formName.includes('-hisui')) return 'Hisui'
   if (formName.includes('-paldea')) return 'Paldea'
+  if (formName.includes('single-strike')) return 'Brusco'
+  if (formName.includes('rapid-strike')) return 'Fluido'
+  if (formName.includes('amped')) return 'Amped'
+  if (formName.includes('low-key')) return 'Low Key'
   return 'Regional'
 }
 
 // Obtener sprite de evolución
-const getEvolutionSprite = (evolution, formName = null) => {
-  if (formName && evolution.form_sprites?.[formName]?.front_default) {
-    return evolution.form_sprites[formName].front_default
+const getEvolutionSprite = (evolution) => {
+  // Priorizar sprite ya definido
+  if (evolution.sprite) {
+    return evolution.sprite
   }
   if (evolution.sprites?.front_default) {
     return evolution.sprites.front_default
   }
-  if (evolution.sprite) {
-    return evolution.sprite
-  }
   return notFound
 }
 
-// Obtener tipos de una forma específica
-const getFormTypes = (evolution, formName) => {
-  if (formName && evolution.form_types?.[formName]) {
-    return evolution.form_types[formName]
+// Obtener tipos de evolución
+const getEvolutionTypes = (evolution) => {
+  if (evolution.types && evolution.types.length > 0) {
+    return evolution.types
   }
-  return evolution.types || []
+  return []
 }
 
-// Determinar si un método es regional
-const isRegionalMethod = (method) => {
+// Determinar si un método es regional o especial
+const isSpecialMethod = (method, evolution) => {
+  if (!method) return false
+
+  // Si tiene estilo definido, es especial
+  if (evolution.style) return true
+
   return (
-    method &&
-    (method.includes('Alola') ||
-      method.includes('Galar') ||
-      method.includes('Hisui') ||
-      method.includes('Paldea') ||
-      method === 'Forma Regional')
+    method.includes('Alola') ||
+    method.includes('Galar') ||
+    method.includes('Hisui') ||
+    method.includes('Paldea') ||
+    method.includes('Torre de la') ||
+    method.includes('Naturaleza:') ||
+    method === 'Forma Regional'
   )
 }
 
-// Obtener color del badge según región
-const getRegionBadgeColor = (region) => {
+// Obtener color del badge según región o estilo
+const getBadgeColor = (region) => {
   const colors = {
+    // Regiones
     Alola: 'bg-yellow-500',
     Galar: 'bg-red-500',
     Hisui: 'bg-blue-500',
     Paldea: 'bg-green-500',
+    // Estilos de Urshifu
+    Brusco: 'bg-purple-600',
+    Fluido: 'bg-cyan-500',
+    // Estilos de Toxtricity
+    Amped: 'bg-orange-500',
+    'Low Key': 'bg-indigo-500',
   }
   return colors[region] || 'bg-purple-600'
+}
+
+// Manejar click en evolución
+const handleEvolutionClick = (evolutionName) => {
+  console.log('Click en evolución:', evolutionName) // Para debug
+  props.onGoToEvolution(evolutionName)
 }
 </script>
 
@@ -126,11 +147,11 @@ const getRegionBadgeColor = (region) => {
               :key="evolution.name"
               class="flex flex-col items-center"
             >
-              <!-- Forma original y sus regionales -->
+              <!-- Forma original y sus variantes -->
               <div class="flex flex-col gap-2">
-                <!-- Forma original o regional -->
+                <!-- Forma original o variante -->
                 <div
-                  @click="onGoToEvolution(evolution.name)"
+                  @click="handleEvolutionClick(evolution.name)"
                   :class="[
                     'flex flex-col items-center p-2 rounded-lg cursor-pointer transition-colors relative',
                     isCurrentPokemon(evolution.name)
@@ -147,7 +168,7 @@ const getRegionBadgeColor = (region) => {
                   <p class="text-xs font-medium mt-1">{{ getDisplayName(evolution) }}</p>
                   <div class="flex gap-1 mt-1 flex-wrap justify-center">
                     <span
-                      v-for="tipo in evolution.types"
+                      v-for="tipo in getEvolutionTypes(evolution)"
                       :key="tipo"
                       :class="formatTipos(tipo).color"
                       class="text-[10px] px-1.5 py-0.5 rounded-full text-white"
@@ -156,13 +177,17 @@ const getRegionBadgeColor = (region) => {
                     </span>
                   </div>
 
-                  <!-- Badge de forma regional -->
+                  <!-- Badge de forma regional o especial -->
                   <span
-                    v-if="evolution.isRegional"
+                    v-if="evolution.isRegional || evolution.isSpecialForm || evolution.style"
                     class="absolute -top-2 -right-2 text-white text-[10px] px-2 py-0.5 rounded-full shadow-md"
-                    :class="getRegionBadgeColor(evolution.region)"
+                    :class="
+                      getBadgeColor(
+                        evolution.region || evolution.style || getRegionFromForm(evolution.name),
+                      )
+                    "
                   >
-                    {{ evolution.region }}
+                    {{ evolution.region || evolution.style || getRegionFromForm(evolution.name) }}
                   </span>
                 </div>
 
@@ -171,8 +196,8 @@ const getRegionBadgeColor = (region) => {
                   <p
                     :class="[
                       'text-[10px] px-2 py-1 rounded-full',
-                      isRegionalMethod(evolution.method)
-                        ? getRegionBadgeColor(evolution.region) + ' text-white'
+                      isSpecialMethod(evolution.method, evolution)
+                        ? getBadgeColor(evolution.region || evolution.style) + ' text-white'
                         : 'text-gray-500 italic bg-gray-100',
                     ]"
                   >

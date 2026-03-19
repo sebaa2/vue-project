@@ -160,11 +160,13 @@ const getData = async () => {
 
 const goToEvolution = async (evolutionName) => {
   let pokemonId
-  
+
   // Caso especial para Urshifu y sus formas
-  if (evolutionName === 'urshifu' || 
-      evolutionName === 'urshifu-rapid-strike' || 
-      evolutionName === 'urshifu-single-strike') {
+  if (
+    evolutionName === 'urshifu' ||
+    evolutionName === 'urshifu-rapid-strike' ||
+    evolutionName === 'urshifu-single-strike'
+  ) {
     pokemonId = 892 // ID de Urshifu (estilo individual)
     console.log(`Usando ID especial para Urshifu: ${pokemonId}`)
   } else {
@@ -304,7 +306,7 @@ const selectForm = async (form) => {
       <div class="grid grid-cols-1 sm:grid-cols-2 place-items-center gap-1">
         <div class="text-center">
           <img
-            class="w-48 h-48"
+            class="w-30"
             :src="isShiny ? currentSprite.front_shiny : currentSprite.front_default"
             @error="handleImageError"
           />
@@ -313,7 +315,7 @@ const selectForm = async (form) => {
 
         <div class="text-center">
           <img
-            class="w-48 h-48"
+            class="w-30"
             :src="isShiny ? currentSprite.back_shiny : currentSprite.back_default"
             @error="handleImageError"
           />
