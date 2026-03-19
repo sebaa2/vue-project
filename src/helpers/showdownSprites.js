@@ -61,12 +61,19 @@ export const formatShowdownName = (pokemonName) => {
   if (pokemonName === 'necrozma-dawn') return 'necrozma-dawnwings'
   if (pokemonName === 'necrozma-dusk') return 'necrozma-duskmane'
 
+  //  yo solo quiero el copete bien peinado
+  if (pokemonName.startsWith('squawkabilly-') && pokemonName.endsWith('-plumage')) {
+    const color = pokemonName.replace('squawkabilly-', '').replace('-plumage', '')
+
+    return color === 'green' ? 'squawkabilly' : `squawkabilly-${color}`
+  }
+
   // GEN 8
   // Urshifu
   if (pokemonName.startsWith('urshifu-')) {
     return pokemonName.replace('-single-strike', '').replace('-rapid-strike', '-rapidstrike')
   }
-  if(pokemonName === 'aegislash-shield') return 'aegislash'
+  if (pokemonName === 'aegislash-shield') return 'aegislash'
 
   // Toxtricity
   if (pokemonName.startsWith('toxtricity')) {

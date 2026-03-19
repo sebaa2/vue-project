@@ -1,295 +1,85 @@
 <script setup>
 import { useRoute } from 'vue-router'
-import { reactive, toRefs, computed, ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
+import { usePokemonStore } from '../stores/pokemonStore.js'
 import BarChar from '../components/BarChar.vue'
 import RadarChar from '../components/RadarChar.vue'
 import EvolutionChain from '../components/EvolutionChain.vue'
 import EeveeEvolutions from '../components/EeveeEvolutions.vue'
-import { formatTipos } from '../config/arrayTipo.js'
-import { columns } from '../config/configuracionTabla.js'
-import { getPokemon } from '../helpers/getPokemon.js'
-import { getSpecies } from '../helpers/getSpecies.js'
 import { formatPoke } from '../helpers/formatPoke.js'
-import {
-  shouldUseShowdown,
-  getShowdownSpritesWithFallback,
-  CHERRIM_SUNSHINE_SPRITES,
-} from '../helpers/showdownSprites.js'
-import { getEvolutionChain } from '../helpers/getEvo.js'
+import { columns } from '../config/configuracionTabla.js'
 import notFound from '../assets/images/no_found.png'
-import Swal from 'sweetalert2'
 
 import DataTable from 'datatables.net-vue3'
 import DataTablesLib from 'datatables.net'
 import 'datatables.net-responsive'
 import 'datatables.net-responsive-dt/css/responsive.dataTables.css'
-import { getMoves } from '../helpers/getMoves.js'
 DataTable.use(DataTablesLib)
 
-const state = reactive({
-  pokemon: null,
-  forms: [],
-  evolutions: [],
-  stats: computed(() => filterStats()),
-  types: computed(() => filterTypes()),
-  formattedTypes: computed(() => filterTypes().map((type) => formatTipos(type))),
-})
-const movesPokemon = ref([])
-const isLoading = ref(false)
-
-// Estado para controlar si estamos usando fallback de home
-const useFallbackSprite = ref(false)
-
-function filterStats() {
-  if (state.pokemon) {
-    return state.pokemon.stats.map((stat) => stat.base_stat)
-  }
-}
-
-function filterTypes() {
-  if (state.pokemon) {
-    return state.pokemon.types.map((type) => type.type.name)
-  }
-}
-
 const route = useRoute()
-const { pokemon, stats, types, formattedTypes, moves } = toRefs(state)
+const store = usePokemonStore()
 
-// error para el uso de imagen
-const handleImageError = (e) => {
-  const pokemonName = state.pokemon?.name
+const {
+  pokemon,
+  forms,
+  evolutions,
+  movesPokemon,
+  isLoading,
+  useFallbackSprite,
+  stats,
+  formattedTypes,
+  currentSprite,
+  filteredForms,
+} = storeToRefs(store)
 
-  if (!useFallbackSprite.value && pokemonName && shouldUseShowdown(pokemonName)) {
-    console.log(`Sprite animado no disponible para ${pokemonName}, intentando con Home`)
-    useFallbackSprite.value = true
-  } else {
-    e.target.src = notFound
-    console.log('Error cargando sprite, usando imagen por defecto')
-  }
-}
+const { loadPokemon, selectForm, goToEvolution, handleImageError } = store
 
-const currentSprite = computed(() => {
-  if (!state.pokemon) return {}
-
-  const sprites = {}
-  const types = ['front_default', 'front_shiny', 'back_default', 'back_shiny']
-
-  types.forEach((type) => {
-    if (useFallbackSprite.value && state.pokemon._fallbackSprites) {
-      sprites[type] = state.pokemon._fallbackSprites[type]
-    } else {
-      sprites[type] = state.pokemon.sprites[type]
-    }
-  })
-
-  return sprites
-})
-
-// Función para obtener el ID de la especie base
-const getBaseSpeciesId = async (pokemonName, currentId) => {
-  // Si el nombre no tiene guión, no es forma regional
-  if (!pokemonName.includes('-')) {
-    return currentId
-  }
-
-  try {
-    // Extraer el nombre base (antes del primer guión)
-    const baseName = pokemonName.split('-')[0]
-
-    // Intentar obtener la especie por el nombre base
-    const speciesRes = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${baseName}`)
-    if (speciesRes.ok) {
-      const speciesData = await speciesRes.json()
-      console.log(`Especie base para ${pokemonName}: ${baseName} (ID: ${speciesData.id})`)
-      return speciesData.id
-    }
-  } catch (error) {
-    console.error('Error obteniendo especie base:', error)
-  }
-
-  // Si todo falla, devolver el ID original
-  return currentId
-}
-
-const getData = async () => {
-  isLoading.value = true
-  state.pokemon = null // limpiar datos anteriores
-
-  Swal.fire({
-    title: 'Cargando Pokémon...',
-    allowOutsideClick: false,
-    showConfirmButton: false,
-    didOpen: () => Swal.showLoading(),
-  })
-  let pokemonData = await getPokemon(route.params.id)
-
-  // Resetear el estado de fallback
-  useFallbackSprite.value = false
-
-  const pokemonName = pokemonData.name
-
-  // Aplicar sprites de Showdown
-  if (pokemonName === 'cherrim-sunshine') {
-    pokemonData.sprites = {
-      ...pokemonData.sprites,
-      ...CHERRIM_SUNSHINE_SPRITES,
-    }
-  }
-  // Para Pokémon que deben usar Showdown (con fallback a Gen5)
-  else if (shouldUseShowdown(pokemonName)) {
-    // Guardamos ambos tipos de sprites
-    const showdownSprites = getShowdownSpritesWithFallback(pokemonName)
-    pokemonData.sprites = {
-      ...pokemonData.sprites,
-      ...showdownSprites.animated, // sprites animados
-    }
-
-    pokemonData._fallbackSprites = showdownSprites.fallback
-    console.log(`Sprites Showdown para: ${pokemonName}`, showdownSprites)
-  }
-  // Si no usa Showdown, mantenemos los sprites originales
-  else {
-    console.log('Manteniendo sprites originales para:', pokemonName)
-  }
-
-  state.pokemon = pokemonData
-  console.log('state.pokemon', state.pokemon)
-
-  // Obtener el ID de la especie base para formas regionales
-  const speciesId = await getBaseSpeciesId(pokemonName, route.params.id)
-
-  // Obtener formas usando el ID de la especie base
-  state.forms = await getSpecies(speciesId)
-  console.log('state.forms', state.forms)
-
-  // Obtener evoluciones usando el ID de la especie base
-  state.evolutions = await getEvolutionChain(speciesId)
-  console.log('state.evolutions', state.evolutions)
-
-  movesPokemon.value = await getMoves(state.pokemon.moves)
-  isLoading.value = false
-  Swal.close()
-}
-
-const goToEvolution = async (evolutionName) => {
-  let pokemonId
-
-  // Caso especial para Urshifu y sus formas
-  if (
-    evolutionName === 'urshifu' ||
-    evolutionName === 'urshifu-rapid-strike' ||
-    evolutionName === 'urshifu-single-strike'
-  ) {
-    pokemonId = 892 // ID de Urshifu (estilo individual)
-    console.log(`Usando ID especial para Urshifu: ${pokemonId}`)
-  } else {
-    // Para el resto de Pokémon, obtener el ID normalmente
-    const pokemonRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${evolutionName}/`)
-    const pokemonData = await pokemonRes.json()
-    pokemonId = pokemonData.id
-  }
-
-  // Cambiar la ruta modificando el parámetro
-  route.params.id = pokemonId
-  await getData()
-}
-watch(route, async () => {
-  await getData()
-  await nextTick()
-})
-
-onMounted(async () => {
-  await getData()
-  await nextTick()
-})
-
-//Cambio entre barra y radar
+// UI local (no necesitan estar en el store)
 const isBarChart = ref(true)
-
-const changeChart = () => {
-  isBarChart.value = !isBarChart.value
-}
-
-//cambio de sprites
 const isShiny = ref(false)
+const activeForm = ref(null)
 
-const toggleShiny = () => {
-  isShiny.value = !isShiny.value
+const changeChart = () => (isBarChart.value = !isBarChart.value)
+const toggleShiny = () => (isShiny.value = !isShiny.value)
+
+const handleSelectForm = async (form) => {
+  activeForm.value = form.pokemon.name
+  await selectForm(form)
 }
 
 function formatName(name) {
   const parts = name.split('-')
-  const base = parts[0]
-
-  // Capitalizar
   const capitalize = (word) => word.charAt(0).toUpperCase() + word.slice(1)
-
-  // Forma base → mostrar nombre del Pokémon
-  if (parts.length === 1) {
-    return capitalize(base)
-  }
-
-  // Formas → mostrar solo la variante
+  if (parts.length === 1) return capitalize(parts[0])
   return parts.slice(1).map(capitalize).join(' ')
 }
 
-const filteredForms = computed(() => {
-  return state.forms.filter(
-    (form) => !form.pokemon.name.includes('koraidon') && !form.pokemon.name.includes('miraidon'),
-  )
+const EEVEE_FAMILY = [
+  'eevee', 'vaporeon', 'jolteon', 'flareon', 'espeon', 'umbreon',
+  'leafeon', 'glaceon', 'sylveon', 'eevee-gmax', 'eevee-starter',
+  'vaporeon-gmax', 'jolteon-gmax', 'flareon-gmax', 'espeon-gmax',
+  'umbreon-gmax', 'leafeon-gmax', 'glaceon-gmax', 'sylveon-gmax',
+]
+
+watch(route, async () => {
+  await loadPokemon(route.params.id)
+  await nextTick()
 })
 
-const activeForm = ref(null)
-
-const selectForm = async (form) => {
-  const res = await fetch(form.pokemon.url)
-  const data = await res.json()
-  const pokemonName = form.pokemon.name
-
-  // Resetear el estado de fallback
-  useFallbackSprite.value = false
-
-  // Aplicar sprites
-  if (pokemonName === 'cherrim-sunshine') {
-    data.sprites = {
-      ...data.sprites,
-      ...CHERRIM_SUNSHINE_SPRITES,
-    }
-  }
-  // Showdown para todos (con home para casos que no tenga)
-  else if (shouldUseShowdown(pokemonName)) {
-    const showdownSprites = getShowdownSpritesWithFallback(pokemonName)
-    data.sprites = {
-      ...data.sprites,
-      ...showdownSprites.animated,
-    }
-    data._fallbackSprites = showdownSprites.fallback
-    console.log(`Sprites Showdown para forma: ${pokemonName}`, showdownSprites)
-  }
-  // sprites originales
-  else {
-    console.log('Manteniendo sprites originales para forma:', pokemonName)
-  }
-
-  state.pokemon = data
-  activeForm.value = pokemonName
-  console.log('activeForm.value', activeForm.value)
-
-  // Obtener el ID de la especie base para las formas regionales
-  const speciesId = await getBaseSpeciesId(pokemonName, data.id)
-
-  // Actualizar las formas usando el ID de la especie base
-  state.forms = await getSpecies(speciesId)
-}
+onMounted(async () => {
+  await loadPokemon(route.params.id)
+  await nextTick()
+})
 </script>
 
 <template>
-  <div v-if="isLoading" class="flex justify-center items-center min-h-screen">
-    <!-- espacio vacío mientras carga SweetAlert -->
-  </div>
+  <!-- Loading: el SweetAlert se encarga del overlay, este div evita contenido residual -->
+  <div v-if="isLoading" class="min-h-screen" />
+
   <div v-else-if="pokemon">
     <div class="w-full max-w-6xl mx-auto rounded-xl p-6 md:p-10 shadow-lg">
-      <h1 class="front-black md:text-3x1 text-xl text-red-900 mb-2">
+      <h1 class="font-black md:text-3xl text-xl text-red-900 mb-2">
         {{ formatPoke(pokemon.name) }}
       </h1>
 
@@ -304,7 +94,7 @@ const selectForm = async (form) => {
           {{ tipo.tipo }}
         </span>
 
-        <!-- BOTON SHINY -->
+        <!-- BOTÓN SHINY -->
         <button
           @click="toggleShiny"
           :class="
@@ -317,42 +107,41 @@ const selectForm = async (form) => {
           {{ isShiny ? 'Normal' : 'Shiny' }}
         </button>
       </div>
+
       <br />
-      <!-- ================= SPRITES ================= -->
+
+      <!-- SPRITES -->
       <div class="grid grid-cols-1 sm:grid-cols-2 place-items-center gap-1">
         <div class="text-center">
           <img
             class="w-30"
             :src="isShiny ? currentSprite.front_shiny : currentSprite.front_default"
-            @error="handleImageError"
+            @error="(e) => handleImageError(e, notFound)"
           />
           <p class="text-sm text-gray-600 mt-2">Frente</p>
         </div>
-
         <div class="text-center">
           <img
             class="w-30"
             :src="isShiny ? currentSprite.back_shiny : currentSprite.back_default"
-            @error="handleImageError"
+            @error="(e) => handleImageError(e, notFound)"
           />
           <p class="text-sm text-gray-600 mt-2">Espalda</p>
         </div>
       </div>
 
-      <!-- Mensaje indicando que se está usando sprite alternativo -->
       <div v-if="useFallbackSprite" class="text-center mt-2">
         <p class="text-xs text-gray-500">Usando sprite estático (GIF no disponible)</p>
       </div>
 
       <!-- FORMAS -->
-      <div v-if="state.forms.length > 1" class="mt-4 text-center">
-        <h2 class="text-lg sm:text-x1 md:text-2x1 font-bold">Formas</h2>
-
+      <div v-if="filteredForms.length > 1" class="mt-4 text-center">
+        <h2 class="text-lg sm:text-xl md:text-2xl font-bold">Formas</h2>
         <div class="flex flex-wrap justify-center gap-1 sm:gap-2 md:gap-3 mt-2">
           <button
             v-for="form in filteredForms"
             :key="form.pokemon.name"
-            @click="selectForm(form)"
+            @click="handleSelectForm(form)"
             :class="[
               'px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm md:px-4 md:py-2 md:text-sm font-medium rounded-lg shadow transition-all duration-200 focus:outline-none focus:ring-2',
               activeForm === form.pokemon.name
@@ -365,47 +154,24 @@ const selectForm = async (form) => {
         </div>
       </div>
 
-      <!-- ================= EVOLUCIONES ================= -->
-      <!-- componente importado para las evos y de paso para eevee -->
+      <!-- EVOLUCIONES -->
       <EeveeEvolutions
-        :evolutions="state.evolutions"
+        :evolutions="evolutions"
         :current-pokemon="pokemon.name"
         :on-go-to-evolution="goToEvolution"
       />
 
-      <!-- Componente normal para el resto de Pokémon -->
       <EvolutionChain
-        v-if="
-          ![
-            'eevee',
-            'vaporeon',
-            'jolteon',
-            'flareon',
-            'espeon',
-            'umbreon',
-            'leafeon',
-            'glaceon',
-            'sylveon',
-            'eevee-gmax',
-            'eevee-starter',
-            'vaporeon-gmax',
-            'jolteon-gmax',
-            'flareon-gmax',
-            'espeon-gmax',
-            'umbreon-gmax',
-            'leafeon-gmax',
-            'glaceon-gmax',
-            'sylveon-gmax',
-          ].includes(pokemon?.name)
-        "
-        :evolutions="state.evolutions"
+        v-if="!EEVEE_FAMILY.includes(pokemon?.name)"
+        :evolutions="evolutions"
         :current-pokemon="pokemon.name"
         :on-go-to-evolution="goToEvolution"
       />
-      <!-- ================= STATS ================= -->
+
+      <!-- STATS -->
       <div class="mt-8">
         <button
-          @click="changeChart()"
+          @click="changeChart"
           class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 mb-4"
         >
           {{ isBarChart ? 'Radar' : 'Bar' }}
@@ -419,10 +185,9 @@ const selectForm = async (form) => {
         </div>
       </div>
 
-      <!-- ================= MOVIMIENTOS ================= -->
+      <!-- MOVIMIENTOS -->
       <div class="mt-8">
         <h2 class="text-2xl font-bold mb-4">Movimientos</h2>
-
         <div class="w-full overflow-x-auto rounded-lg">
           <DataTable :columns="columns" :data="movesPokemon" />
         </div>
