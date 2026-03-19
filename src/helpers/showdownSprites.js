@@ -66,6 +66,7 @@ export const formatShowdownName = (pokemonName) => {
   if (pokemonName.startsWith('urshifu-')) {
     return pokemonName.replace('-single-strike', '').replace('-rapid-strike', '-rapidstrike')
   }
+  if(pokemonName === 'aegislash-shield') return 'aegislash'
 
   // Toxtricity
   if (pokemonName.startsWith('toxtricity')) {

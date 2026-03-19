@@ -17,6 +17,7 @@ import {
 } from '../helpers/showdownSprites.js'
 import { getEvolutionChain } from '../helpers/getEvo.js'
 import notFound from '../assets/images/no_found.png'
+import Swal from 'sweetalert2'
 
 import DataTable from 'datatables.net-vue3'
 import DataTablesLib from 'datatables.net'
@@ -34,6 +35,7 @@ const state = reactive({
   formattedTypes: computed(() => filterTypes().map((type) => formatTipos(type))),
 })
 const movesPokemon = ref([])
+const isLoading = ref(false)
 
 // Estado para controlar si estamos usando fallback de home
 const useFallbackSprite = ref(false)
@@ -110,6 +112,15 @@ const getBaseSpeciesId = async (pokemonName, currentId) => {
 }
 
 const getData = async () => {
+  isLoading.value = true
+  state.pokemon = null // limpiar datos anteriores
+
+  Swal.fire({
+    title: 'Cargando Pokémon...',
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => Swal.showLoading(),
+  })
   let pokemonData = await getPokemon(route.params.id)
 
   // Resetear el estado de fallback
@@ -156,6 +167,8 @@ const getData = async () => {
   console.log('state.evolutions', state.evolutions)
 
   movesPokemon.value = await getMoves(state.pokemon.moves)
+  isLoading.value = false
+  Swal.close()
 }
 
 const goToEvolution = async (evolutionName) => {
@@ -271,7 +284,10 @@ const selectForm = async (form) => {
 </script>
 
 <template>
-  <div v-if="pokemon">
+  <div v-if="isLoading" class="flex justify-center items-center min-h-screen">
+    <!-- espacio vacío mientras carga SweetAlert -->
+  </div>
+  <div v-else-if="pokemon">
     <div class="w-full max-w-6xl mx-auto rounded-xl p-6 md:p-10 shadow-lg">
       <h1 class="front-black md:text-3x1 text-xl text-red-900 mb-2">
         {{ formatPoke(pokemon.name) }}
