@@ -1,4 +1,4 @@
-// stores/pokemonStore.js (versión modificada con caché)
+// stores/pokemonStore.js
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getPokemon } from '../helpers/getPokemon.js'
@@ -24,10 +24,8 @@ export const usePokemonStore = defineStore(
     const movesPokemon = ref([])
     const isLoading = ref(false)
     const useFallbackSprite = ref(false)
-    const loadingFromCache = ref(false) // Nuevo: indica si se cargó desde caché
-
-    // Caché para movimientos (NO se persiste)
-    const movesCache = new Map()
+    const loadingFromCache = ref(false)
+    const prefetchEnabled = ref(true) // Control de prefetching
 
     // Obtener instancia del caché de Pokémon
     const pokemonCache = usePokemonCacheStore()
@@ -115,7 +113,6 @@ export const usePokemonStore = defineStore(
       }))
     })
 
-    // Nuevo getter: indica si el Pokémon actual se cargó desde caché
     const isFromCache = computed(() => loadingFromCache.value)
 
     // ==================== HELPERS ====================
@@ -151,41 +148,86 @@ export const usePokemonStore = defineStore(
       return currentId
     }
 
-    const loadMovesWithCache = async (movesList) => {
-      const cacheKey = JSON.stringify(movesList.map((m) => m.move.name).sort())
+    // ==================== PREFETCHING SIMPLIFICADO ====================
 
-      if (movesCache.has(cacheKey)) {
-        console.log('Usando caché de movimientos')
-        return movesCache.get(cacheKey)
-      }
+    let prefetchTimeout = null
+    let evolutionPrefetchTimeout = null
 
-      const moves = await getMoves(movesList)
-      movesCache.set(cacheKey, moves)
+    /**
+     * Precarga el siguiente Pokémon (solo el más importante)
+     */
+    const prefetchNextPokemon = (currentId) => {
+      if (!prefetchEnabled.value) return
+      if (!currentId) return
 
-      if (movesCache.size > 50) {
-        const firstKey = movesCache.keys().next().value
-        movesCache.delete(firstKey)
-      }
+      const nextId = currentId + 1
+      if (nextId > 1025) return
 
-      return moves
+      // Limpiar timeout anterior
+      if (prefetchTimeout) clearTimeout(prefetchTimeout)
+
+      // Esperar 2 segundos después de cargar para precargar
+      prefetchTimeout = setTimeout(() => {
+        if (!pokemonCache.hasPokemon(nextId)) {
+          console.log(`🔄 Precargando Pokémon #${nextId}...`)
+
+          getPokemon(nextId)
+            .then((data) => {
+              const processedData = applySprites(data)
+              pokemonCache.setPokemon(nextId, processedData)
+              console.log(`✅ Pokémon #${nextId} precargado`)
+            })
+            .catch((err) => console.error(`Error precargando #${nextId}:`, err))
+        }
+      }, 2000)
     }
 
-    // Nuevo: cargar datos adicionales (formas y evoluciones) en background
-    const loadAdditionalData = async (pokemonData, speciesId) => {
-      try {
-        const [speciesForms, evolutionChain] = await Promise.all([
-          getSpecies(speciesId),
-          getEvolutionChain(speciesId, pokemonData.name),
-        ])
+    /**
+     * Precarga la evolución principal (solo 1)
+     */
+    const prefetchMainEvolution = (evolutionChain) => {
+      if (!prefetchEnabled.value) return
+      if (!evolutionChain || evolutionChain.length === 0) return
 
-        forms.value = speciesForms
-        evolutions.value = evolutionChain
-      } catch (error) {
-        console.error('Error cargando datos adicionales:', error)
+      // Tomar la primera evolución (la más importante)
+      const mainEvolution = evolutionChain[0]
+      if (!mainEvolution || !mainEvolution.id) return
+
+      // Limpiar timeout anterior
+      if (evolutionPrefetchTimeout) clearTimeout(evolutionPrefetchTimeout)
+
+      // Esperar 3 segundos para precargar la evolución
+      evolutionPrefetchTimeout = setTimeout(() => {
+        if (!pokemonCache.hasPokemon(mainEvolution.id)) {
+          console.log(`🔄 Precargando evolución: ${mainEvolution.name}...`)
+
+          getPokemon(mainEvolution.id)
+            .then((data) => {
+              const processedData = applySprites(data)
+              pokemonCache.setPokemon(mainEvolution.id, processedData)
+              console.log(`✅ Evolución ${mainEvolution.name} precargada`)
+            })
+            .catch((err) => console.error(`Error precargando evolución:`, err))
+        }
+      }, 3000)
+    }
+
+    /**
+     * Toggle para activar/desactivar prefetching
+     */
+    const togglePrefetch = () => {
+      prefetchEnabled.value = !prefetchEnabled.value
+      console.log(`⚡ Prefetching ${prefetchEnabled.value ? 'activado' : 'desactivado'}`)
+
+      // Limpiar timeouts si se desactiva
+      if (!prefetchEnabled.value) {
+        if (prefetchTimeout) clearTimeout(prefetchTimeout)
+        if (evolutionPrefetchTimeout) clearTimeout(evolutionPrefetchTimeout)
       }
     }
 
     // ==================== ACTIONS ====================
+
     const loadPokemon = async (id) => {
       isLoading.value = true
       loadingFromCache.value = false
@@ -197,12 +239,7 @@ export const usePokemonStore = defineStore(
         console.log(`📀 Cargando Pokémon ${id} desde caché`)
         loadingFromCache.value = true
 
-        // Cargar datos principales desde caché
         pokemon.value = cachedPokemon
-
-        // Intentar cargar movimientos desde caché si existen
-        const cachedMovesKey = `moves_${id}`
-        // Los movimientos se cargarán normalmente pero podrían estar en movesCache
 
         Swal.fire({
           title: 'Cargando desde caché...',
@@ -213,13 +250,23 @@ export const usePokemonStore = defineStore(
         })
 
         try {
-          // Cargar datos adicionales en background
           const speciesId = await getBaseSpeciesId(cachedPokemon.name, id)
-          await loadAdditionalData(cachedPokemon, speciesId)
 
-          // Cargar movimientos
-          const moves = await loadMovesWithCache(cachedPokemon.moves)
+          const [speciesForms, evolutionChain, moves] = await Promise.all([
+            getSpecies(speciesId),
+            getEvolutionChain(speciesId, cachedPokemon.name),
+            getMoves(cachedPokemon.moves),
+          ])
+
+          forms.value = speciesForms
+          evolutions.value = evolutionChain
           movesPokemon.value = moves
+
+          // Iniciar prefetching simplificado
+          if (evolutionChain && evolutionChain.length > 0) {
+            prefetchMainEvolution(evolutionChain)
+          }
+          prefetchNextPokemon(id)
 
           Swal.close()
         } catch (error) {
@@ -259,7 +306,7 @@ export const usePokemonStore = defineStore(
         const [speciesForms, evolutionChain, moves] = await Promise.all([
           getSpecies(speciesId),
           getEvolutionChain(speciesId, pokemonData.name),
-          loadMovesWithCache(pokemonData.moves),
+          getMoves(pokemonData.moves),
         ])
 
         forms.value = speciesForms
@@ -268,6 +315,12 @@ export const usePokemonStore = defineStore(
 
         // Guardar en caché
         pokemonCache.setPokemon(id, pokemonData)
+
+        // Iniciar prefetching simplificado
+        if (evolutionChain && evolutionChain.length > 0) {
+          prefetchMainEvolution(evolutionChain)
+        }
+        prefetchNextPokemon(id)
       } catch (error) {
         console.error('Error cargando Pokémon:', error)
         Swal.fire({
@@ -296,7 +349,6 @@ export const usePokemonStore = defineStore(
       try {
         useFallbackSprite.value = false
 
-        // Verificar si la forma está en caché
         const formId = form.pokemon.url.split('/').filter(Boolean).pop()
         const cachedForm = pokemonCache.getPokemon(formId)
 
@@ -307,7 +359,7 @@ export const usePokemonStore = defineStore(
 
           const speciesId = await getBaseSpeciesId(cachedForm.name, cachedForm.id)
           forms.value = await getSpecies(speciesId)
-          const moves = await loadMovesWithCache(cachedForm.moves)
+          const moves = await getMoves(cachedForm.moves)
           movesPokemon.value = moves
         } else {
           const res = await fetch(form.pokemon.url)
@@ -315,15 +367,20 @@ export const usePokemonStore = defineStore(
           data = applySprites(data)
           pokemon.value = data
 
-          // Guardar en caché
           pokemonCache.setPokemon(data.id, data)
 
           const speciesId = await getBaseSpeciesId(data.name, data.id)
           forms.value = await getSpecies(speciesId)
 
-          const moves = await loadMovesWithCache(data.moves)
+          const moves = await getMoves(data.moves)
           movesPokemon.value = moves
         }
+
+        // Iniciar prefetching simplificado
+        if (evolutions.value && evolutions.value.length > 0) {
+          prefetchMainEvolution(evolutions.value)
+        }
+        prefetchNextPokemon(pokemon.value.id)
       } catch (error) {
         console.error('Error cargando forma:', error)
       } finally {
@@ -357,15 +414,9 @@ export const usePokemonStore = defineStore(
       }
     }
 
-    const clearMovesCache = () => {
-      movesCache.clear()
-      console.log('Caché de movimientos limpiado')
-    }
-
     const refreshPokemon = async () => {
       if (pokemon.value) {
         const id = pokemon.value.id
-        // Eliminar de caché para forzar recarga
         pokemonCache.removePokemon(id)
         await loadPokemon(id)
       }
@@ -380,6 +431,7 @@ export const usePokemonStore = defineStore(
       isLoading,
       useFallbackSprite,
       loadingFromCache,
+      prefetchEnabled,
       // getters
       stats,
       types,
@@ -394,16 +446,15 @@ export const usePokemonStore = defineStore(
       selectForm,
       goToEvolution,
       handleImageError,
-      clearMovesCache,
       refreshPokemon,
+      togglePrefetch,
     }
   },
   {
     persist: {
       key: 'pokemon-store',
       storage: localStorage,
-      paths: ['useFallbackSprite'],
-      // No persistir datos de Pokémon, solo usar caché separado
+      paths: ['useFallbackSprite', 'prefetchEnabled'],
     },
   },
 )

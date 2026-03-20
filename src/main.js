@@ -10,7 +10,7 @@ import VueApexCharts from 'vue3-apexcharts'
 import PrimeVue from 'primevue/config'
 import Aura from '@primevue/themes/aura'
 import 'primeicons/primeicons.css'
-
+import VirtualScroller from 'primevue/virtualscroller'
 const app = createApp(App)
 const pinia = createPinia()
 
@@ -24,5 +24,6 @@ app.use(PrimeVue, {
     options: { darkModeSelector: '.dark' },
   },
 })
+app.component('VirtualScroller', VirtualScroller)
 
 app.mount('#app')

@@ -1,73 +1,183 @@
-<script setup>
-import { getSearchPoke } from '../helpers/getSearchPoke'
-import { computed, reactive, toRefs, onMounted } from 'vue'
-import { formatPoke } from '../helpers/formatPoke' // ✅ Importamos la función
-
-const state = reactive({
-  pokemons: [],
-  name: '',
-  showList: false,
-  filterPokemon: computed(() => {
-    return state.pokemons.filter((pokemon) => {
-      const pokemonName = pokemon.name.toLowerCase().replace(/-/g, ' ')
-      const search = state.name.toLowerCase()
-
-      return pokemonName.includes(search)
-    })
-  }),
-})
-
-const { pokemons, name, filterPokemon } = toRefs(state)
-
-onMounted(async () => {
-  state.pokemons = await getSearchPoke()
-})
-
-function hideList() {
-  setTimeout(() => {
-    state.showList = false
-  }, 200)
-}
-</script>
-
 <template>
-  <header class="bg-red-700 text-white mb-4 py-8 px-6">
-    <h1 class="text-3xl font-bold text-center">Pokemon + vite</h1>
-    <!-- barra de busqueda-->
-    <div class="flex gap-4">
-      <!-- Sidebar Pokémon -->
-      <div class="w-64 flex-shrink-0">
+  <header class="bg-red-700 text-white mb-4 py-8 px-6 relative">
+    <h1 class="text-3xl font-bold text-center">Pokemon + Vite</h1>
+
+    <div class="flex gap-4 justify-center mt-4">
+      <div class="w-96 relative">
+        <!-- INPUT DE BÚSQUEDA -->
         <div class="relative">
           <input
+            ref="inputRef"
             type="text"
-            v-model="state.name"
-            placeholder="Buscar Pokémon..."
-            @focus="state.showList = true"
+            :value="searchTerm"
+            @input="handleSearchInput"
+            @focus="showList = true"
             @blur="hideList"
-            class="w-full pl-10 pr-3 py-2.5 bg-white text-gray-800 border border-gray-400 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition"
+            placeholder="Buscar Pokémon..."
+            class="w-full pl-10 pr-10 py-2.5 bg-white text-gray-800 border border-gray-400 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition"
           />
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
 
-          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"> 🔍 </span>
+          <div v-if="isTyping" class="absolute right-3 top-1/2 -translate-y-1/2">
+            <div
+              class="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"
+            ></div>
+          </div>
+
+          <button
+            v-if="searchTerm && !isTyping"
+            @click="clearSearch"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            ✕
+          </button>
         </div>
 
-        <ul
-          v-if="state.showList"
-          class="absolute center-0 bg-white overflow-y-auto max-h-50 border rounded shadow text-gray-800"
+        <!-- CONTENEDOR PARA LA LISTA (posicionado fuera del flujo) -->
+        <div
+          v-if="showList && !isLoading && filteredPokemons.length > 0"
+          class="absolute z-50 w-full mt-1"
+          style="top: 100%; left: 0"
         >
-          <li
-            v-for="pokemon in filterPokemon"
-            :key="pokemon.index"
-            class="p-2 rounded hover:text-red-400 hover:bg-red-100"
+          <VirtualScroller
+            :items="filteredPokemons"
+            :itemSize="48"
+            :buffer="10"
+            class="bg-white border rounded-lg shadow-lg overflow-hidden"
+            style="height: 400px"
           >
-            <span class="text-sm font-normal text-gray-500 mr-3"> # {{ pokemon.index }} </span>
+            <template #item="{ item }">
+              <router-link
+                :to="`/details/${item.index}`"
+                class="flex items-center gap-2 p-2 hover:bg-red-50 transition-colors block"
+                @click="showList = false"
+              >
+                <span class="text-sm font-normal text-gray-500 min-w-[50px]">
+                  #{{ String(item.index).padStart(3, '0') }}
+                </span>
+                <span class="text-gray-800 hover:text-red-600">
+                  {{ formatPoke(item.name) }}
+                </span>
+              </router-link>
+            </template>
+          </VirtualScroller>
+        </div>
 
-            <router-link :to="`/details/${pokemon.index}`">
-              {{ formatPoke(pokemon.name) }}
-              <!-- ✅ Usamos la función importada -->
-            </router-link>
-          </li>
-        </ul>
+        <!-- CONTENEDOR PARA LA BARRA DE PROGRESO -->
+        <div v-if="isLoading" class="absolute z-50 w-full mt-1" style="top: 100%; left: 0">
+          <div class="bg-white border rounded-lg shadow-lg p-3">
+            <div class="text-sm text-gray-600 mb-1">Cargando Pokémon... {{ loadingProgress }}%</div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div
+                class="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                :style="{ width: `${loadingProgress}%` }"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CONTENEDOR PARA MENSAJE SIN RESULTADOS -->
+        <div
+          v-if="showList && !isLoading && filteredPokemons.length === 0 && searchTerm"
+          class="absolute z-50 w-full mt-1"
+          style="top: 100%; left: 0"
+        >
+          <div class="bg-white border rounded-lg shadow-lg text-gray-500 p-4 text-center">
+            No se encontraron Pokémon para "{{ searchTerm }}"
+          </div>
+        </div>
       </div>
     </div>
   </header>
 </template>
+
+<script setup>
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import VirtualScroller from 'primevue/virtualscroller'
+import { getSearchPoke } from '../helpers/getSearchPoke'
+import { formatPoke } from '../helpers/formatPoke'
+
+// ==================== STATE ====================
+const pokemons = ref([])
+const isLoading = ref(true)
+const loadingProgress = ref(0)
+const searchTerm = ref('')
+const searchTermDebounced = ref('')
+const showList = ref(false)
+const isTyping = ref(false)
+const inputRef = ref(null)
+
+let debounceTimeout = null
+
+// ==================== GETTERS ====================
+const filteredPokemons = computed(() => {
+  if (!searchTermDebounced.value) return pokemons.value
+
+  const search = searchTermDebounced.value.toLowerCase()
+  return pokemons.value.filter((pokemon) => {
+    const pokemonName = pokemon.name.toLowerCase().replace(/-/g, ' ')
+    return pokemonName.includes(search)
+  })
+})
+
+// ==================== ACTIONS ====================
+const handleSearchInput = (event) => {
+  searchTerm.value = event.target.value
+  isTyping.value = true
+  showList.value = true
+
+  if (debounceTimeout) clearTimeout(debounceTimeout)
+
+  debounceTimeout = setTimeout(() => {
+    searchTermDebounced.value = searchTerm.value
+    isTyping.value = false
+  }, 300)
+}
+
+const hideList = () => {
+  setTimeout(() => {
+    showList.value = false
+  }, 200)
+}
+
+const clearSearch = () => {
+  searchTerm.value = ''
+  searchTermDebounced.value = ''
+  isTyping.value = false
+  if (debounceTimeout) clearTimeout(debounceTimeout)
+}
+
+// ==================== LIFECYCLE ====================
+onMounted(async () => {
+  // Cargar Pokémon en segundo plano
+  isLoading.value = true
+
+  try {
+    pokemons.value = await getSearchPoke()
+    loadingProgress.value = 100
+  } catch (error) {
+    console.error('Error cargando Pokémon:', error)
+  } finally {
+    isLoading.value = false
+  }
+})
+
+onUnmounted(() => {
+  if (debounceTimeout) clearTimeout(debounceTimeout)
+})
+</script>
+
+<style scoped>
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+</style>

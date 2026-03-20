@@ -1,6 +1,6 @@
 <script setup>
 import { useRoute } from 'vue-router'
-import { ref, onMounted, watch, nextTick, computed } from 'vue'
+import { ref, onMounted, watch, nextTick, computed, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePokemonStore } from '../stores/pokemonStore.js'
 import { useSearchStore } from '../stores/searchStore.js'
@@ -14,8 +14,7 @@ import { formatTipos } from '../config/arrayTipo.js'
 import notFound from '../assets/images/no_found.png'
 
 // PrimeVue
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
+import VirtualScroller from 'primevue/virtualscroller'
 
 import physicalIcon from '../assets/categories/physical.png'
 import specialIcon from '../assets/categories/special.png'
@@ -54,6 +53,7 @@ const {
 
 const {
   searchTerm,
+  searchTermDebounced, // ← IMPORTANTE: añadido para usar el término con debounce
   selectedType,
   selectedCategory,
   sortBy,
@@ -61,6 +61,7 @@ const {
   currentPage,
   itemsPerPage,
   isSearchActive,
+  isTyping,
 } = storeToRefs(searchStore)
 
 const { loadPokemon, selectForm, goToEvolution, handleImageError } = pokemonStore
@@ -81,7 +82,12 @@ const {
 const isBarChart = ref(true)
 const isShiny = ref(false)
 const activeForm = ref(null)
-const expandedRows = ref({})
+const expandedMove = ref(null)
+
+// Computed para detectar si es una forma Gigantamax
+const isGigantamax = computed(() => {
+  return pokemon.value?.name?.includes('-gmax') || false
+})
 
 // Computed para opciones de tipos con nombres en español (para los filtros)
 const tipoOptions = computed(() => {
@@ -102,12 +108,15 @@ const categoriaOptions = computed(() => {
 })
 
 // Computed para movimientos filtrados y ordenados
+// ✅ CORREGIDO: usa searchTermDebounced en lugar de searchTerm
 const filteredAndSortedMoves = computed(() => {
   let moves = [...movesPokemon.value]
 
-  // Filtrar por término de búsqueda
-  if (searchTerm.value) {
-    const term = searchTerm.value.toLowerCase()
+  // Usar searchTermDebounced (con debounce) para filtrar
+  const searchValue = searchTermDebounced.value
+
+  if (searchValue) {
+    const term = searchValue.toLowerCase()
     moves = moves.filter(
       (move) =>
         move.name.toLowerCase().includes(term) ||
@@ -147,8 +156,10 @@ const filteredAndSortedMoves = computed(() => {
 
 const changeChart = () => (isBarChart.value = !isBarChart.value)
 const toggleShiny = () => (isShiny.value = !isShiny.value)
+const toggleMoveDetails = (moveName) => {
+  expandedMove.value = expandedMove.value === moveName ? null : moveName
+}
 
-// Función para manejar el click del botón escondido
 const handleHiddenButtonClick = () => {
   easterEggStore.triggerSilla()
 }
@@ -165,11 +176,6 @@ function formatName(name) {
   const capitalize = (word) => word.charAt(0).toUpperCase() + word.slice(1)
   if (parts.length === 1) return capitalize(parts[0])
   return parts.slice(1).map(capitalize).join(' ')
-}
-
-function damageSeverity(damageClass) {
-  const map = { physical: 'danger', special: 'info', status: 'secondary' }
-  return map[damageClass?.toLowerCase()] ?? 'secondary'
 }
 
 const EEVEE_FAMILY = [
@@ -203,6 +209,13 @@ watch(route, async () => {
 onMounted(async () => {
   await loadPokemon(route.params.id)
   await nextTick()
+})
+
+onUnmounted(() => {
+  // Limpiar cualquier timeout pendiente
+  if (searchStore._debounceTimeout) {
+    clearTimeout(searchStore._debounceTimeout)
+  }
 })
 </script>
 
@@ -337,8 +350,8 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- MOVIMIENTOS -->
-      <div class="mt-8">
+      <!-- MOVIMIENTOS CON VIRTUAL SCROLLER - Ocultar si es Gigantamax -->
+      <div v-if="!isGigantamax" class="mt-8">
         <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
           <h2 class="text-2xl font-bold">Movimientos</h2>
 
@@ -351,17 +364,24 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- BARRA DE BÚSQUEDA Y FILTROS CON NOMBRES EN ESPAÑOL -->
+        <!-- BARRA DE BÚSQUEDA Y FILTROS CON DEBOUNCE -->
         <div class="mb-4 flex flex-wrap gap-2">
-          <input
-            :value="searchTerm"
-            @input="(e) => setSearchTerm(e.target.value)"
-            type="text"
-            placeholder="🔍 Buscar movimiento..."
-            class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-          />
+          <div class="relative">
+            <input
+              :value="searchTerm"
+              @input="(e) => setSearchTerm(e.target.value)"
+              type="text"
+              placeholder="🔍 Buscar movimiento..."
+              class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-8"
+            />
+            <!-- Indicador de escritura -->
+            <div v-if="isTyping" class="absolute right-2 top-1/2 transform -translate-y-1/2">
+              <div
+                class="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"
+              ></div>
+            </div>
+          </div>
 
-          <!-- Selector de tipos con nombres en español -->
           <select
             :value="selectedType"
             @change="(e) => setSelectedType(e.target.value)"
@@ -372,7 +392,6 @@ onMounted(async () => {
             </option>
           </select>
 
-          <!-- Selector de categorías con nombres en español -->
           <select
             :value="selectedCategory"
             @change="(e) => setSelectedCategory(e.target.value)"
@@ -384,89 +403,113 @@ onMounted(async () => {
           </select>
         </div>
 
-        <!-- TABLA DE MOVIMIENTOS -->
-        <DataTable
-          v-model:expandedRows="expandedRows"
-          :value="filteredAndSortedMoves"
-          :paginator="true"
-          :rows="itemsPerPage"
-          :rowsPerPageOptions="[5, 10, 25, 50]"
-          sortMode="multiple"
-          removableSort
-          dataKey="name"
-          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown"
-          stripedRows
-          @page="(e) => setCurrentPage(e.page + 1)"
+        <!-- VIRTUAL SCROLLER PARA MOVIMIENTOS -->
+        <VirtualScroller
+          :items="filteredAndSortedMoves"
+          :itemSize="70"
+          :buffer="3"
+          class="border border-gray-200 rounded-lg overflow-hidden"
+          style="height: 500px"
         >
-          <!-- Columna Tipo -->
-          <Column field="type" header="Tipo" sortable style="width: 10%">
-            <template #body="{ data }">
-              <span
-                :class="formatTipos(data.type).color"
-                class="px-2 py-1 rounded-full text-white text-sm"
-              >
-                {{ formatTipos(data.type).tipo }}
-              </span>
-            </template>
-          </Column>
+          <template #item="{ item, index }">
+            <div
+              v-memo="[item.name, expandedMove === item.name]"
+              class="hover:bg-gray-50 transition-colors"
+              :class="{ 'bg-gray-50': index % 2 === 0, 'bg-white': index % 2 === 1 }"
+            >
+              <!-- Fila principal -->
+              <div class="flex items-center p-3 gap-2">
+                <!-- Columna Tipo -->
+                <div class="w-24">
+                  <span
+                    :class="formatTipos(item.type).color"
+                    class="px-2 py-1 rounded-full text-white text-sm block text-center"
+                  >
+                    {{ formatTipos(item.type).tipo }}
+                  </span>
+                </div>
 
-          <!-- Columna Categoría -->
-          <Column field="category" header="Categoría" sortable style="width: 10%">
-            <template #body="{ data }">
-              <span
-                :class="{
-                  'bg-red-500': data.category === 'physical',
-                  'bg-blue-500': data.category === 'special',
-                  'bg-green-500': data.category === 'status',
-                  'bg-gray-400': !categoryIcon[data.category],
-                }"
-                class="px-2 py-1 rounded-full text-white inline-flex items-center gap-1 text-sm whitespace-nowrap"
-              >
-                <img
-                  v-if="categoryIcon[data.category]"
-                  :src="categoryIcon[data.category]"
-                  :alt="data.category"
-                  class="h-6 w-6 object-contain"
-                />
-                {{ categoryLabel[data.category] ?? data.category }}
-              </span>
-            </template>
-          </Column>
+                <!-- Columna Categoría -->
+                <div class="w-28">
+                  <span
+                    :class="{
+                      'bg-red-500': item.category === 'physical',
+                      'bg-blue-500': item.category === 'special',
+                      'bg-green-500': item.category === 'status',
+                    }"
+                    class="px-2 py-1 rounded-full text-white inline-flex items-center gap-1 text-sm"
+                  >
+                    <img
+                      v-if="categoryIcon[item.category]"
+                      :src="categoryIcon[item.category]"
+                      :alt="item.category"
+                      class="h-5 w-5"
+                    />
+                    {{ categoryLabel[item.category] ?? item.category }}
+                  </span>
+                </div>
 
-          <!-- Columna Movimiento -->
-          <Column field="name" header="Movimiento" sortable style="width: 10%">
-            <template #body="{ data }">
-              <span class="bg-gray-200 px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
-                {{ formatName(data.name) }}
-              </span>
-            </template>
-          </Column>
+                <!-- Columna Movimiento -->
+                <div class="flex-1">
+                  <span class="font-medium text-gray-800">
+                    {{ formatName(item.name) }}
+                  </span>
+                </div>
 
-          <!-- Columna Poder -->
-          <Column field="power" header="Poder" sortable style="width: 10%">
-            <template #body="{ data }">
-              {{ data.power ?? '—' }}
-            </template>
-          </Column>
+                <!-- Columna Poder -->
+                <div class="w-16 text-center text-gray-600">
+                  {{
+                    item.power !== undefined && item.power !== null && item.power !== '-'
+                      ? item.power
+                      : '—'
+                  }}
+                </div>
 
-          <!-- Columna PP -->
-          <Column field="pp" header="PP" sortable style="width: 10%">
-            <template #body="{ data }">
-              {{ data.pp ?? '—' }}
-            </template>
-          </Column>
+                <!-- Columna PP -->
+                <div class="w-16 text-center text-gray-600">
+                  {{ item.pp || '—' }}
+                </div>
 
-          <!-- Fila expandida con efecto -->
-          <template #expansion="{ data }">
-            <div class="px-4 py-3 bg-gray-50 rounded text-sm text-gray-700">
-              <p v-if="data.effect"><span class="font-semibold">Efecto: </span>{{ data.effect }}</p>
-              <p v-else class="italic text-gray-400">Sin descripción disponible.</p>
+                <!-- Botón expandir/colapsar -->
+                <button
+                  @click="toggleMoveDetails(item.name)"
+                  class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition"
+                >
+                  <span class="text-gray-500">
+                    {{ expandedMove === item.name ? '▲' : '▼' }}
+                  </span>
+                </button>
+              </div>
+
+              <!-- Fila expandida con detalles -->
+              <div v-if="expandedMove === item.name" class="px-3 pb-3">
+                <div
+                  class="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 border-l-4 border-blue-400"
+                >
+                  <p v-if="item.effect">
+                    <span class="font-semibold">🎯 Efecto: </span>{{ item.effect }}
+                  </p>
+                  <p v-else class="italic text-gray-400">
+                    Sin descripción disponible para este movimiento.
+                  </p>
+                  <div
+                    v-if="item.accuracy || item.priority"
+                    class="mt-2 flex gap-4 text-xs text-gray-500"
+                  >
+                    <span v-if="item.accuracy">🎯 Precisión: {{ item.accuracy }}%</span>
+                    <span v-if="item.priority && item.priority !== 0"
+                      >⚡ Prioridad:
+                      {{ item.priority > 0 ? `+${item.priority}` : item.priority }}</span
+                    >
+                  </div>
+                </div>
+              </div>
             </div>
           </template>
 
-          <!-- Mensaje cuando no hay resultados -->
+          <!-- Template cuando no hay movimientos -->
           <template #empty>
-            <div class="text-center py-6 text-gray-500">
+            <div class="flex items-center justify-center h-32 text-gray-500">
               No se encontraron movimientos.
               <button
                 v-if="isSearchActive"
@@ -477,7 +520,13 @@ onMounted(async () => {
               </button>
             </div>
           </template>
-        </DataTable>
+        </VirtualScroller>
+      </div>
+
+      <!-- Mensaje para formas Gigantamax -->
+      <!-- Mensaje aún más simple -->
+      <div v-else class="mt-8 text-center text-gray-400 italic">
+        Sin movimientos disponibles para formas Gigantamax
       </div>
     </div>
   </div>
