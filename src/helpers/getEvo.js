@@ -54,7 +54,7 @@ export const getEvolutionChain = async (pokemonId) => {
           {
             name: 'urshifu-single-strike',
             displayName: 'Urshifu Estilo Brusco',
-            method: 'Torre de la Oscuridad',
+            method: 'Torre de la Oscuridad / Manuscrito sombras (Generaciones actuales)',
             style: 'Brusco',
             types: ['fighting', 'dark'],
             sprite: 'https://play.pokemonshowdown.com/sprites/home/urshifu.png',
@@ -62,7 +62,7 @@ export const getEvolutionChain = async (pokemonId) => {
           {
             name: 'urshifu-rapid-strike',
             displayName: 'Urshifu Estilo Fluido',
-            method: 'Torre del Agua',
+            method: 'Torre del Agua / Manuscrito aguas (Generaciones actuales)',
             style: 'Fluido',
             types: ['fighting', 'water'],
             sprite: 'https://play.pokemonshowdown.com/sprites/home/urshifu-rapidstrike.png',

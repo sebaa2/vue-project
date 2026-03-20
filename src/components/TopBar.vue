@@ -43,8 +43,8 @@
             :items="filteredPokemons"
             :itemSize="48"
             :buffer="10"
+            :style="{ height: getListHeight() + 'px' }"
             class="bg-white border rounded-lg shadow-lg overflow-hidden"
-            style="height: 400px"
           >
             <template #item="{ item }">
               <router-link
@@ -120,7 +120,20 @@ const filteredPokemons = computed(() => {
   })
 })
 
-// ==================== ACTIONS ====================
+// ==================== MÉTODOS ====================
+const getListHeight = () => {
+  const itemsCount = filteredPokemons.value.length
+  const itemHeight = 48
+  const maxHeight = 400
+  const minHeight = 48 // Mínimo 1 elemento visible
+
+  const calculatedHeight = itemsCount * itemHeight
+
+  if (calculatedHeight > maxHeight) return maxHeight
+  if (calculatedHeight < minHeight) return minHeight
+  return calculatedHeight
+}
+
 const handleSearchInput = (event) => {
   searchTerm.value = event.target.value
   isTyping.value = true
