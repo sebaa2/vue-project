@@ -45,6 +45,7 @@ export const formatShowdownName = (pokemonName) => {
 
   // GEN 6
   if (pokemonName === 'pyroar-male') return 'pyroar'
+  if (pokemonName === 'zygarde-50') return 'zygarde'
 
   // GEN 7
   // Oricorio
@@ -81,11 +82,10 @@ export const formatShowdownName = (pokemonName) => {
     return pokemonName.replace('-amped', '').replace('-low-key', '-lowkey')
   }
 
-  // Morpeko (FIX bug)
+  // Morpeko
   if (pokemonName === 'morpeko-full-belly') return 'morpeko'
   if (pokemonName === 'morpeko-hangry') return 'morpeko-hangry'
 
-  // Darmanitan ya manejado arriba
 
   // GEN 9
   // Maushold

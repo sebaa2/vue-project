@@ -1,3 +1,4 @@
+// stores/pokemonStore.js (versión modificada con caché)
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getPokemon } from '../helpers/getPokemon.js'
@@ -11,6 +12,7 @@ import {
   CHERRIM_SUNSHINE_SPRITES,
 } from '../helpers/showdownSprites.js'
 import Swal from 'sweetalert2'
+import { usePokemonCacheStore } from './pokemonCacheStore.js'
 
 export const usePokemonStore = defineStore(
   'pokemon',
@@ -22,6 +24,13 @@ export const usePokemonStore = defineStore(
     const movesPokemon = ref([])
     const isLoading = ref(false)
     const useFallbackSprite = ref(false)
+    const loadingFromCache = ref(false) // Nuevo: indica si se cargó desde caché
+
+    // Caché para movimientos (NO se persiste)
+    const movesCache = new Map()
+
+    // Obtener instancia del caché de Pokémon
+    const pokemonCache = usePokemonCacheStore()
 
     // ==================== GETTERS ====================
     const stats = computed(() => {
@@ -55,20 +64,65 @@ export const usePokemonStore = defineStore(
     })
 
     const filteredForms = computed(() => {
-      return forms.value.filter(
-        (form) =>
-          !form.pokemon.name.includes('koraidon') && !form.pokemon.name.includes('miraidon'),
-      )
+      const order = ['10', '50', 'complete', 'mega']
+      return forms.value
+        .filter(
+          (form) =>
+            !form.pokemon.name.includes('koraidon') &&
+            !form.pokemon.name.includes('miraidon') &&
+            form.pokemon.name !== 'zygarde-10-power-construct' &&
+            form.pokemon.name !== 'zygarde-50-power-construct',
+        )
+        .sort((a, b) => {
+          const getOrder = (name) => {
+            const match = order.findIndex((key) => name.includes(key))
+            return match === -1 ? order.length : match
+          }
+          return getOrder(a.pokemon.name) - getOrder(b.pokemon.name)
+        })
     })
+
+    const uniqueMoveTypes = computed(() => {
+      if (!movesPokemon.value.length) return []
+
+      const tiposEnIngles = new Set(movesPokemon.value.map((move) => move.type))
+
+      const tiposConEspanol = Array.from(tiposEnIngles).map((tipo) => ({
+        value: tipo,
+        label: formatTipos(tipo).tipo,
+      }))
+
+      tiposConEspanol.sort((a, b) => a.label.localeCompare(b.label))
+
+      return tiposConEspanol
+    })
+
+    const uniqueCategories = computed(() => {
+      if (!movesPokemon.value.length) return []
+
+      const categoriasEnIngles = new Set(movesPokemon.value.map((move) => move.category))
+
+      return Array.from(categoriasEnIngles).map((cat) => ({
+        value: cat,
+        label:
+          cat === 'physical'
+            ? 'Físico'
+            : cat === 'special'
+              ? 'Especial'
+              : cat === 'status'
+                ? 'Estado'
+                : cat,
+      }))
+    })
+
+    // Nuevo getter: indica si el Pokémon actual se cargó desde caché
+    const isFromCache = computed(() => loadingFromCache.value)
 
     // ==================== HELPERS ====================
     const applySprites = (pokemonData) => {
       const pokemonName = pokemonData.name
       console.log(pokemonData.name)
-      /*
-    condicion especial para traer el sprite de cherrim
-    (R: su forma solo se activa en batalla + sol)
-    */
+
       if (pokemonName === 'cherrim-sunshine') {
         pokemonData.sprites = { ...pokemonData.sprites, ...CHERRIM_SUNSHINE_SPRITES }
       } else if (shouldUseShowdown(pokemonName)) {
@@ -97,9 +151,93 @@ export const usePokemonStore = defineStore(
       return currentId
     }
 
+    const loadMovesWithCache = async (movesList) => {
+      const cacheKey = JSON.stringify(movesList.map((m) => m.move.name).sort())
+
+      if (movesCache.has(cacheKey)) {
+        console.log('Usando caché de movimientos')
+        return movesCache.get(cacheKey)
+      }
+
+      const moves = await getMoves(movesList)
+      movesCache.set(cacheKey, moves)
+
+      if (movesCache.size > 50) {
+        const firstKey = movesCache.keys().next().value
+        movesCache.delete(firstKey)
+      }
+
+      return moves
+    }
+
+    // Nuevo: cargar datos adicionales (formas y evoluciones) en background
+    const loadAdditionalData = async (pokemonData, speciesId) => {
+      try {
+        const [speciesForms, evolutionChain] = await Promise.all([
+          getSpecies(speciesId),
+          getEvolutionChain(speciesId, pokemonData.name),
+        ])
+
+        forms.value = speciesForms
+        evolutions.value = evolutionChain
+      } catch (error) {
+        console.error('Error cargando datos adicionales:', error)
+      }
+    }
+
     // ==================== ACTIONS ====================
     const loadPokemon = async (id) => {
       isLoading.value = true
+      loadingFromCache.value = false
+
+      // Verificar si está en caché
+      const cachedPokemon = pokemonCache.getPokemon(id)
+
+      if (cachedPokemon) {
+        console.log(`📀 Cargando Pokémon ${id} desde caché`)
+        loadingFromCache.value = true
+
+        // Cargar datos principales desde caché
+        pokemon.value = cachedPokemon
+
+        // Intentar cargar movimientos desde caché si existen
+        const cachedMovesKey = `moves_${id}`
+        // Los movimientos se cargarán normalmente pero podrían estar en movesCache
+
+        Swal.fire({
+          title: 'Cargando desde caché...',
+          text: 'Cargando datos adicionales...',
+          allowOutsideClick: false,
+          showConfirmButton: false,
+          didOpen: () => Swal.showLoading(),
+        })
+
+        try {
+          // Cargar datos adicionales en background
+          const speciesId = await getBaseSpeciesId(cachedPokemon.name, id)
+          await loadAdditionalData(cachedPokemon, speciesId)
+
+          // Cargar movimientos
+          const moves = await loadMovesWithCache(cachedPokemon.moves)
+          movesPokemon.value = moves
+
+          Swal.close()
+        } catch (error) {
+          console.error('Error cargando datos adicionales:', error)
+          Swal.fire({
+            icon: 'warning',
+            title: 'Datos incompletos',
+            text: 'Algunos datos se cargaron desde caché, pero hubo un error con datos adicionales',
+          })
+        } finally {
+          isLoading.value = false
+        }
+
+        return
+      }
+
+      // Si no está en caché, cargar normalmente
+      console.log(`🌐 Cargando Pokémon ${id} desde API`)
       pokemon.value = null
 
       Swal.fire({
@@ -120,13 +258,16 @@ export const usePokemonStore = defineStore(
 
         const [speciesForms, evolutionChain, moves] = await Promise.all([
           getSpecies(speciesId),
-          getEvolutionChain(speciesId),
-          getMoves(pokemonData.moves),
+          getEvolutionChain(speciesId, pokemonData.name),
+          loadMovesWithCache(pokemonData.moves),
         ])
 
         forms.value = speciesForms
         evolutions.value = evolutionChain
         movesPokemon.value = moves
+
+        // Guardar en caché
+        pokemonCache.setPokemon(id, pokemonData)
       } catch (error) {
         console.error('Error cargando Pokémon:', error)
         Swal.fire({
@@ -142,6 +283,7 @@ export const usePokemonStore = defineStore(
 
     const selectForm = async (form) => {
       isLoading.value = true
+      loadingFromCache.value = false
       pokemon.value = null
 
       Swal.fire({
@@ -154,13 +296,34 @@ export const usePokemonStore = defineStore(
       try {
         useFallbackSprite.value = false
 
-        const res = await fetch(form.pokemon.url)
-        let data = await res.json()
-        data = applySprites(data)
-        pokemon.value = data
+        // Verificar si la forma está en caché
+        const formId = form.pokemon.url.split('/').filter(Boolean).pop()
+        const cachedForm = pokemonCache.getPokemon(formId)
 
-        const speciesId = await getBaseSpeciesId(data.name, data.id)
-        forms.value = await getSpecies(speciesId)
+        if (cachedForm) {
+          console.log(`📀 Cargando forma ${formId} desde caché`)
+          loadingFromCache.value = true
+          pokemon.value = cachedForm
+
+          const speciesId = await getBaseSpeciesId(cachedForm.name, cachedForm.id)
+          forms.value = await getSpecies(speciesId)
+          const moves = await loadMovesWithCache(cachedForm.moves)
+          movesPokemon.value = moves
+        } else {
+          const res = await fetch(form.pokemon.url)
+          let data = await res.json()
+          data = applySprites(data)
+          pokemon.value = data
+
+          // Guardar en caché
+          pokemonCache.setPokemon(data.id, data)
+
+          const speciesId = await getBaseSpeciesId(data.name, data.id)
+          forms.value = await getSpecies(speciesId)
+
+          const moves = await loadMovesWithCache(data.moves)
+          movesPokemon.value = moves
+        }
       } catch (error) {
         console.error('Error cargando forma:', error)
       } finally {
@@ -171,7 +334,6 @@ export const usePokemonStore = defineStore(
 
     const goToEvolution = async (evolutionName) => {
       let pokemonId
-      // condiciones especiales para urshifu
       if (
         evolutionName === 'urshifu' ||
         evolutionName === 'urshifu-rapid-strike' ||
@@ -195,6 +357,20 @@ export const usePokemonStore = defineStore(
       }
     }
 
+    const clearMovesCache = () => {
+      movesCache.clear()
+      console.log('Caché de movimientos limpiado')
+    }
+
+    const refreshPokemon = async () => {
+      if (pokemon.value) {
+        const id = pokemon.value.id
+        // Eliminar de caché para forzar recarga
+        pokemonCache.removePokemon(id)
+        await loadPokemon(id)
+      }
+    }
+
     return {
       // state
       pokemon,
@@ -203,20 +379,31 @@ export const usePokemonStore = defineStore(
       movesPokemon,
       isLoading,
       useFallbackSprite,
+      loadingFromCache,
       // getters
       stats,
       types,
       formattedTypes,
       currentSprite,
       filteredForms,
+      uniqueMoveTypes,
+      uniqueCategories,
+      isFromCache,
       // actions
       loadPokemon,
       selectForm,
       goToEvolution,
       handleImageError,
+      clearMovesCache,
+      refreshPokemon,
     }
   },
   {
-    persist: true,
+    persist: {
+      key: 'pokemon-store',
+      storage: localStorage,
+      paths: ['useFallbackSprite'],
+      // No persistir datos de Pokémon, solo usar caché separado
+    },
   },
 )

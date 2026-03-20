@@ -1,16 +1,19 @@
 <script setup>
 import { useRoute } from 'vue-router'
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, watch, nextTick, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePokemonStore } from '../stores/pokemonStore.js'
+import { useSearchStore } from '../stores/searchStore.js'
+import { useEasterEggStore } from '../stores/EastereggStore.js' // Importar el store de Easter Eggs
 import BarChar from '../components/BarChar.vue'
 import RadarChar from '../components/RadarChar.vue'
 import EvolutionChain from '../components/EvolutionChain.vue'
 import EeveeEvolutions from '../components/EeveeEvolutions.vue'
 import { formatPoke } from '../helpers/formatPoke.js'
+import { formatTipos } from '../config/arrayTipo.js'
 import notFound from '../assets/images/no_found.png'
 
-// ── PrimeVue ──────────────────────────────────────────────────────────────────
+// PrimeVue
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 
@@ -18,10 +21,10 @@ import physicalIcon from '../assets/categories/physical.png'
 import specialIcon from '../assets/categories/special.png'
 import statusIcon from '../assets/categories/status.png'
 
-import { formatTipos } from '../config/arrayTipo'
-
 const route = useRoute()
-const store = usePokemonStore()
+const pokemonStore = usePokemonStore()
+const searchStore = useSearchStore()
+const easterEggStore = useEasterEggStore() // Inicializar el store de Easter Eggs
 
 const categoryIcon = {
   physical: physicalIcon,
@@ -34,6 +37,7 @@ const categoryLabel = {
   special: 'Especial',
   status: 'Estado',
 }
+
 const {
   pokemon,
   evolutions,
@@ -44,9 +48,34 @@ const {
   formattedTypes,
   currentSprite,
   filteredForms,
-} = storeToRefs(store)
+  uniqueMoveTypes,
+  uniqueCategories,
+} = storeToRefs(pokemonStore)
 
-const { loadPokemon, selectForm, goToEvolution, handleImageError } = store
+const {
+  searchTerm,
+  selectedType,
+  selectedCategory,
+  sortBy,
+  sortOrder,
+  currentPage,
+  itemsPerPage,
+  isSearchActive,
+} = storeToRefs(searchStore)
+
+const { loadPokemon, selectForm, goToEvolution, handleImageError } = pokemonStore
+
+const {
+  setSearchTerm,
+  setSelectedType,
+  setSelectedCategory,
+  setSortBy,
+  toggleSortOrder,
+  setCurrentPage,
+  setItemsPerPage,
+  resetFilters,
+  clearSearch,
+} = searchStore
 
 // UI local
 const isBarChart = ref(true)
@@ -54,12 +83,81 @@ const isShiny = ref(false)
 const activeForm = ref(null)
 const expandedRows = ref({})
 
+// Computed para opciones de tipos con nombres en español (para los filtros)
+const tipoOptions = computed(() => {
+  const options = [{ value: 'all', label: 'Todos los tipos' }]
+  if (uniqueMoveTypes.value.length) {
+    return [...options, ...uniqueMoveTypes.value]
+  }
+  return options
+})
+
+// Computed para opciones de categorías con nombres en español (para los filtros)
+const categoriaOptions = computed(() => {
+  const options = [{ value: 'all', label: 'Todas las categorías' }]
+  if (uniqueCategories.value.length) {
+    return [...options, ...uniqueCategories.value]
+  }
+  return options
+})
+
+// Computed para movimientos filtrados y ordenados
+const filteredAndSortedMoves = computed(() => {
+  let moves = [...movesPokemon.value]
+
+  // Filtrar por término de búsqueda
+  if (searchTerm.value) {
+    const term = searchTerm.value.toLowerCase()
+    moves = moves.filter(
+      (move) =>
+        move.name.toLowerCase().includes(term) ||
+        (move.effect && move.effect.toLowerCase().includes(term)),
+    )
+  }
+
+  // Filtrar por tipo
+  if (selectedType.value !== 'all') {
+    moves = moves.filter((move) => move.type === selectedType.value)
+  }
+
+  // Filtrar por categoría
+  if (selectedCategory.value !== 'all') {
+    moves = moves.filter((move) => move.category === selectedCategory.value)
+  }
+
+  // Ordenar
+  moves.sort((a, b) => {
+    let aVal = a[sortBy.value]
+    let bVal = b[sortBy.value]
+
+    if (sortBy.value === 'name') {
+      aVal = aVal?.toLowerCase() || ''
+      bVal = bVal?.toLowerCase() || ''
+    }
+
+    if (sortOrder.value === 'asc') {
+      return aVal > bVal ? 1 : -1
+    } else {
+      return aVal < bVal ? 1 : -1
+    }
+  })
+
+  return moves
+})
+
 const changeChart = () => (isBarChart.value = !isBarChart.value)
 const toggleShiny = () => (isShiny.value = !isShiny.value)
+
+// Función para manejar el click del botón escondido
+const handleHiddenButtonClick = () => {
+  easterEggStore.triggerSilla()
+}
 
 const handleSelectForm = async (form) => {
   activeForm.value = form.pokemon.name
   await selectForm(form)
+  // Resetear filtros al cambiar de forma
+  resetFilters()
 }
 
 function formatName(name) {
@@ -69,7 +167,6 @@ function formatName(name) {
   return parts.slice(1).map(capitalize).join(' ')
 }
 
-// Mapea el tipo de daño a severity de PrimeVue Tag
 function damageSeverity(damageClass) {
   const map = { physical: 'danger', special: 'info', status: 'secondary' }
   return map[damageClass?.toLowerCase()] ?? 'secondary'
@@ -99,6 +196,7 @@ const EEVEE_FAMILY = [
 
 watch(route, async () => {
   await loadPokemon(route.params.id)
+  resetFilters()
   await nextTick()
 })
 
@@ -127,17 +225,36 @@ onMounted(async () => {
           {{ tipo.tipo }}
         </span>
 
-        <button
-          @click="toggleShiny"
-          :class="
-            isShiny
-              ? 'bg-purple-500 text-white'
-              : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-black'
-          "
-          class="px-4 py-2 rounded-lg shadow-md font-semibold hover:scale-105 active:scale-95 transition-all duration-200"
-        >
-          {{ isShiny ? 'Normal' : 'Shiny' }}
-        </button>
+        <!-- Contenedor para el botón Shiny y el botón escondido -->
+        <div class="relative inline-block">
+          <button
+            @click="toggleShiny"
+            :class="
+              isShiny
+                ? 'bg-purple-500 text-white'
+                : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-black'
+            "
+            class="px-4 py-2 rounded-lg shadow-md font-semibold hover:scale-105 active:scale-95 transition-all duration-200"
+          >
+            {{ isShiny ? 'Normal' : 'Shiny' }}
+          </button>
+
+          <!-- Botón escondido al lado derecho del botón shiny -->
+          <button
+            @click="handleHiddenButtonClick"
+            class="hidden-button"
+            style="
+              position: absolute;
+              right: -40px;
+              top: 0;
+              width: 40px;
+              height: 40px;
+              opacity: 0;
+              cursor: pointer;
+            "
+            aria-label="Botón secreto"
+          ></button>
+        </div>
       </div>
 
       <br />
@@ -220,23 +337,68 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- MOVIMIENTOS ──  -->
+      <!-- MOVIMIENTOS -->
       <div class="mt-8">
-        <h2 class="text-2xl font-bold mb-4">Movimientos</h2>
+        <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+          <h2 class="text-2xl font-bold">Movimientos</h2>
 
+          <!-- Indicador de filtros activos -->
+          <div v-if="isSearchActive" class="text-sm text-gray-500">
+            {{ filteredAndSortedMoves.length }} / {{ movesPokemon.length }} movimientos
+            <button @click="resetFilters" class="ml-2 text-red-500 hover:text-red-700">
+              ✕ Limpiar
+            </button>
+          </div>
+        </div>
+
+        <!-- BARRA DE BÚSQUEDA Y FILTROS CON NOMBRES EN ESPAÑOL -->
+        <div class="mb-4 flex flex-wrap gap-2">
+          <input
+            :value="searchTerm"
+            @input="(e) => setSearchTerm(e.target.value)"
+            type="text"
+            placeholder="🔍 Buscar movimiento..."
+            class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          />
+
+          <!-- Selector de tipos con nombres en español -->
+          <select
+            :value="selectedType"
+            @change="(e) => setSelectedType(e.target.value)"
+            class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          >
+            <option v-for="option in tipoOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+
+          <!-- Selector de categorías con nombres en español -->
+          <select
+            :value="selectedCategory"
+            @change="(e) => setSelectedCategory(e.target.value)"
+            class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          >
+            <option v-for="option in categoriaOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+
+        <!-- TABLA DE MOVIMIENTOS -->
         <DataTable
           v-model:expandedRows="expandedRows"
-          :value="movesPokemon"
+          :value="filteredAndSortedMoves"
           :paginator="true"
-          :rows="10"
+          :rows="itemsPerPage"
           :rowsPerPageOptions="[5, 10, 25, 50]"
           sortMode="multiple"
           removableSort
           dataKey="name"
           paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown"
           stripedRows
+          @page="(e) => setCurrentPage(e.page + 1)"
         >
-          <!-- Tipo -->
+          <!-- Columna Tipo -->
           <Column field="type" header="Tipo" sortable style="width: 10%">
             <template #body="{ data }">
               <span
@@ -247,7 +409,8 @@ onMounted(async () => {
               </span>
             </template>
           </Column>
-          <!-- Categoria -->
+
+          <!-- Columna Categoría -->
           <Column field="category" header="Categoría" sortable style="width: 10%">
             <template #body="{ data }">
               <span
@@ -270,7 +433,7 @@ onMounted(async () => {
             </template>
           </Column>
 
-          <!-- Movimiento -->
+          <!-- Columna Movimiento -->
           <Column field="name" header="Movimiento" sortable style="width: 10%">
             <template #body="{ data }">
               <span class="bg-gray-200 px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
@@ -279,17 +442,21 @@ onMounted(async () => {
             </template>
           </Column>
 
-          <!-- Poder -->
+          <!-- Columna Poder -->
           <Column field="power" header="Poder" sortable style="width: 10%">
             <template #body="{ data }">
               {{ data.power ?? '—' }}
             </template>
           </Column>
 
-          <!-- PP -->
-          <Column field="pp" header="PP" sortable style="width: 10%" />
+          <!-- Columna PP -->
+          <Column field="pp" header="PP" sortable style="width: 10%">
+            <template #body="{ data }">
+              {{ data.pp ?? '—' }}
+            </template>
+          </Column>
 
-          <!-- Fila expandida -->
+          <!-- Fila expandida con efecto -->
           <template #expansion="{ data }">
             <div class="px-4 py-3 bg-gray-50 rounded text-sm text-gray-700">
               <p v-if="data.effect"><span class="font-semibold">Efecto: </span>{{ data.effect }}</p>
@@ -297,12 +464,21 @@ onMounted(async () => {
             </div>
           </template>
 
+          <!-- Mensaje cuando no hay resultados -->
           <template #empty>
-            <div class="text-center py-6 text-gray-500">No se encontraron movimientos.</div>
+            <div class="text-center py-6 text-gray-500">
+              No se encontraron movimientos.
+              <button
+                v-if="isSearchActive"
+                @click="resetFilters"
+                class="ml-2 text-blue-500 hover:text-blue-700"
+              >
+                Limpiar filtros
+              </button>
+            </div>
           </template>
         </DataTable>
       </div>
-      <!-- ── fin tabla -->
     </div>
   </div>
 
@@ -310,3 +486,13 @@ onMounted(async () => {
     <p>Cargando...</p>
   </div>
 </template>
+
+<style scoped>
+.hidden-button {
+  transition: opacity 0.3s;
+}
+
+.hidden-button:hover {
+  opacity: 0.2 !important;
+}
+</style>

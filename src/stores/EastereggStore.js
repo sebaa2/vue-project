@@ -3,10 +3,12 @@ import { ref, computed } from 'vue'
 import Swal from 'sweetalert2'
 import rayquazaGif from '../assets/images/pokemon-rayquaza.gif'
 import woChienImg from '../assets/images/live.jpg'
+import hidden from '../assets/images/rayquaza.png'
 import sound from '../assets/sounds/conga.m4a'
 
 const RAYQUAZA_GIF = rayquazaGif
 const WOCHIEN_IMG = woChienImg
+const HIDDEN_IMG = hidden
 
 export const useEasterEggStore = defineStore(
   'easterEgg',
@@ -19,6 +21,11 @@ export const useEasterEggStore = defineStore(
     const woChienTimesTriggered = ref(0)
     const woChienFirstTriggeredAt = ref(null)
     const woChienLastTriggeredAt = ref(null)
+
+    // Nuevo estado para el Easter Egg de la silla
+    const sillaTimesTriggered = ref(0)
+    const sillaFirstTriggeredAt = ref(null)
+    const sillaLastTriggeredAt = ref(null)
 
     // ==================== GETTERS ====================
     const hasTriggeredBefore = computed(() => timesTriggered.value > 0)
@@ -34,7 +41,15 @@ export const useEasterEggStore = defineStore(
       if (woChienTimesTriggered.value === 0) return '¡Invocaste a Wo-Chien!'
       if (woChienTimesTriggered.value === 1) return '¡Volviste a invocar las runas! 📜'
       if (woChienTimesTriggered.value < 5) return `¡${woChienTimesTriggered.value} invocaciones! 🌿`
-      return `¡Maestro de las Ruinas! × ${woChienTimesTriggered.value} 🏛️`
+      return `¡wo chien llego! × ${woChienTimesTriggered.value} 🏛️`
+    })
+
+    // Getter para el mensaje de la silla
+    const sillaTriggerMessage = computed(() => {
+      if (sillaTimesTriggered.value === 0) return '¡Encontraste el botón escondido!'
+      if (sillaTimesTriggered.value === 1) return '¡Otra vez con la silla!'
+      if (sillaTimesTriggered.value < 5) return `¡${sillaTimesTriggered.value} sillazos!`
+      return `¡Dale con la silla! × ${sillaTimesTriggered.value} `
     })
 
     // ==================== ACTIONS ====================
@@ -74,7 +89,6 @@ export const useEasterEggStore = defineStore(
         padding: '2rem',
         backdrop: 'rgba(0, 0, 30, 0.85)',
         didDestroy: () => {
-          // Detener el audio al cerrar el modal
           audio.pause()
           audio.currentTime = 0
         },
@@ -89,9 +103,9 @@ export const useEasterEggStore = defineStore(
       if (woChienTimesTriggered.value === 1) woChienFirstTriggeredAt.value = now
 
       Swal.fire({
-        title: '🌿 ¡WO-CHIEN APARECIÓ!',
+        title: '🌿 ¡Y AHORA QUE HICISTE!',
         html: `
-          <p class="text-green-300 text-sm mb-1">"wo-chien"</p>
+          <p class="text-green-300 text-sm mb-1">"entra lentamente"</p>
           <p class="text-yellow-400 text-xs font-bold mb-4">${woChienTriggerMessage.value}</p>
           <img
             src="${WOCHIEN_IMG}"
@@ -105,11 +119,47 @@ export const useEasterEggStore = defineStore(
         `,
         background: '#0f2010',
         color: '#ffffff',
-        confirmButtonText: '¡Las runas hablan!',
+        confirmButtonText: '¡Adios!',
         confirmButtonColor: '#16a34a',
         width: 400,
         padding: '2rem',
         backdrop: 'rgba(0, 20, 0, 0.85)',
+      })
+    }
+
+    // Nueva acción para el Easter Egg de la silla
+    const triggerSilla = () => {
+      console.log('triggerSilla ejecutado') // Para debugging
+      const now = new Date().toLocaleString('es-CL')
+
+      sillaTimesTriggered.value++
+      sillaLastTriggeredAt.value = now
+      if (sillaTimesTriggered.value === 1) {
+        sillaFirstTriggeredAt.value = now
+      }
+
+      Swal.fire({
+        title: ' ¡OMG!',
+        html: `
+          <p class="text-blue-300 text-sm mb-1">¡es Rayquaza y trae un silla!</p>
+          <p class="text-yellow-400 text-base font-bold mb-4">${sillaTriggerMessage.value}</p>
+          <img
+            src="${HIDDEN_IMG}"
+            alt="Rayquaza escondido"
+            class="mx-auto rounded-xl shadow-lg"
+            style="max-width: 280px; width: 100%; object-fit: contain;"
+          />
+          <p class="text-gray-400 text-xs mt-4">
+            Activado ${sillaTimesTriggered.value} ${sillaTimesTriggered.value === 1 ? 'vez' : 'veces'}
+          </p>
+        `,
+        background: '#1e293b',
+        color: '#ffffff',
+        confirmButtonText: '¡Sí, dale!',
+        confirmButtonColor: '#f59e0b',
+        width: 400,
+        padding: '2rem',
+        backdrop: 'rgba(0, 0, 0, 0.85)',
       })
     }
 
@@ -125,6 +175,13 @@ export const useEasterEggStore = defineStore(
       woChienLastTriggeredAt.value = null
     }
 
+    const resetSilla = () => {
+      sillaTimesTriggered.value = 0
+      sillaFirstTriggeredAt.value = null
+      sillaLastTriggeredAt.value = null
+    }
+
+    // Asegurarse de que todas las funciones estén en el return
     return {
       // state
       timesTriggered,
@@ -133,15 +190,21 @@ export const useEasterEggStore = defineStore(
       woChienTimesTriggered,
       woChienFirstTriggeredAt,
       woChienLastTriggeredAt,
+      sillaTimesTriggered,
+      sillaFirstTriggeredAt,
+      sillaLastTriggeredAt,
       // getters
       hasTriggeredBefore,
       triggerMessage,
       woChienTriggerMessage,
-      // actions
+      sillaTriggerMessage,
+      // actions - VERIFICAR QUE TODAS ESTÉN AQUÍ
       trigger,
       triggerWoChien,
+      triggerSilla, // Asegurar que esta línea existe
       reset,
       resetWoChien,
+      resetSilla,
     }
   },
   {
@@ -154,6 +217,9 @@ export const useEasterEggStore = defineStore(
         'woChienTimesTriggered',
         'woChienFirstTriggeredAt',
         'woChienLastTriggeredAt',
+        'sillaTimesTriggered',
+        'sillaFirstTriggeredAt',
+        'sillaLastTriggeredAt',
       ],
     },
   },
