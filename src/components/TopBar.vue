@@ -2,8 +2,45 @@
   <header class="bg-red-700 text-white mb-4 py-8 px-6 relative">
     <h1 class="text-3xl font-bold text-center">Pokemon + Vite</h1>
 
+    <!-- Mostrar el Pokémon más buscado SOLO en home -->
+    <div v-if="isHomeRoute && mostVisitedPokemon" class="mt-4 max-w-md mx-auto">
+      <div
+        class="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl shadow-lg p-3 cursor-pointer hover:scale-105 transition-transform duration-300"
+        @click="goToPokemonDetails"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 flex-1">
+            <div class="text-3xl">🏆</div>
+            <div class="flex-1">
+              <p class="text-xs font-semibold text-yellow-100 uppercase tracking-wide">
+                Pokémon más buscado
+              </p>
+              <div class="flex items-center gap-2 mt-1">
+                <img
+                  :src="mostVisitedPokemon.sprite"
+                  :alt="mostVisitedPokemon.name"
+                  class="w-10 h-10 object-contain bg-white rounded-full p-1"
+                  @error="handleImageError"
+                />
+                <div>
+                  <p class="text-sm font-bold text-white capitalize">
+                    {{ formatName(mostVisitedPokemon.name) }}
+                  </p>
+                  <p class="text-xs text-yellow-100">
+                    {{ mostVisitedPokemon.count }}
+                    {{ mostVisitedPokemon.count === 1 ? 'visita' : 'visitas' }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="text-white text-xl">→</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Mostrar la barra de búsqueda solo si NO está en home -->
-    <div v-if="!isHomeRoute" class="flex gap-4 justify-center mt-4">
+    <div v-else-if="!isHomeRoute" class="flex gap-4 justify-center mt-4">
       <div class="w-96 relative">
         <!-- INPUT DE BÚSQUEDA -->
         <div class="relative">
@@ -94,13 +131,23 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import VirtualScroller from 'primevue/virtualscroller'
 import { getSearchPoke } from '../helpers/getSearchPoke'
 import { formatPoke } from '../helpers/formatPoke'
+import notFound from '../assets/images/no_found.png'
+
+// Props para recibir el Pokémon más visitado
+const props = defineProps({
+  mostVisitedPokemon: {
+    type: Object,
+    default: null,
+  },
+})
 
 // ==================== ROUTE ====================
 const route = useRoute()
+const router = useRouter()
 
 // ==================== STATE ====================
 const pokemons = ref([])
@@ -131,6 +178,20 @@ const filteredPokemons = computed(() => {
 })
 
 // ==================== MÉTODOS ====================
+const formatName = (name) => {
+  return name.split('-')[0].charAt(0).toUpperCase() + name.split('-')[0].slice(1)
+}
+
+const handleImageError = (e) => {
+  e.target.src = notFound
+}
+
+const goToPokemonDetails = () => {
+  if (props.mostVisitedPokemon) {
+    router.push(`/details/${props.mostVisitedPokemon.id}`)
+  }
+}
+
 const getListHeight = () => {
   const itemsCount = filteredPokemons.value.length
   const itemHeight = 48

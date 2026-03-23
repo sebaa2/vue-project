@@ -8,7 +8,7 @@
         <p class="text-gray-600 text-lg">Explora los 1025 Pokémon</p>
       </div>
 
-      <div v-if="mostVisitedPokemon" class="mb-8">
+      <div v-if="false" class="mb-8">
         <div
           class="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl shadow-md p-4 border border-yellow-200"
         >
