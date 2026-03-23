@@ -2,7 +2,7 @@
   <header class="bg-red-700 text-white mb-4 py-8 px-6 relative">
     <h1 class="text-3xl font-bold text-center">Pokemon + Vite</h1>
 
-    <!-- Contenedor de búsqueda - solo visible si NO estamos en Home -->
+    <!-- Mostrar la barra de búsqueda solo si NO está en home -->
     <div v-if="!isHomeRoute" class="flex gap-4 justify-center mt-4">
       <div class="w-96 relative">
         <!-- INPUT DE BÚSQUEDA -->
@@ -34,7 +34,7 @@
           </button>
         </div>
 
-        <!-- CONTENEDOR PARA LA LISTA (posicionado fuera del flujo) -->
+        <!-- CONTENEDOR PARA LA LISTA -->
         <div
           v-if="showList && !isLoading && filteredPokemons.length > 0"
           class="absolute z-50 w-full mt-1"
@@ -64,7 +64,7 @@
           </VirtualScroller>
         </div>
 
-        <!-- CONTENEDOR PARA LA BARRA DE PROGRESO -->
+        <!-- BARRA DE PROGRESO -->
         <div v-if="isLoading" class="absolute z-50 w-full mt-1" style="top: 100%; left: 0">
           <div class="bg-white border rounded-lg shadow-lg p-3">
             <div class="text-sm text-gray-600 mb-1">Cargando Pokémon... {{ loadingProgress }}%</div>
@@ -77,7 +77,7 @@
           </div>
         </div>
 
-        <!-- CONTENEDOR PARA MENSAJE SIN RESULTADOS -->
+        <!-- MENSAJE SIN RESULTADOS -->
         <div
           v-if="showList && !isLoading && filteredPokemons.length === 0 && searchTerm"
           class="absolute z-50 w-full mt-1"
@@ -94,19 +94,15 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router' // Importar useRoute
+import { useRoute } from 'vue-router'
 import VirtualScroller from 'primevue/virtualscroller'
 import { getSearchPoke } from '../helpers/getSearchPoke'
 import { formatPoke } from '../helpers/formatPoke'
 
+// ==================== ROUTE ====================
+const route = useRoute()
+
 // ==================== STATE ====================
-const route = useRoute() // Obtener la ruta actual
-
-// Computed para verificar si estamos en la ruta Home
-const isHomeRoute = computed(() => {
-  return route.path === '/' || route.path === '/home'
-})
-
 const pokemons = ref([])
 const isLoading = ref(true)
 const loadingProgress = ref(0)
@@ -119,6 +115,11 @@ const inputRef = ref(null)
 let debounceTimeout = null
 
 // ==================== GETTERS ====================
+// Detectar si está en la ruta home
+const isHomeRoute = computed(() => {
+  return route.path === '/' || route.path === '/home'
+})
+
 const filteredPokemons = computed(() => {
   if (!searchTermDebounced.value) return pokemons.value
 
@@ -134,7 +135,7 @@ const getListHeight = () => {
   const itemsCount = filteredPokemons.value.length
   const itemHeight = 48
   const maxHeight = 400
-  const minHeight = 48 // Mínimo 1 elemento visible
+  const minHeight = 48
 
   const calculatedHeight = itemsCount * itemHeight
 
@@ -171,7 +172,6 @@ const clearSearch = () => {
 
 // ==================== LIFECYCLE ====================
 onMounted(async () => {
-  // Cargar Pokémon en segundo plano
   isLoading.value = true
 
   try {

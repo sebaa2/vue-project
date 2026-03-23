@@ -8,6 +8,45 @@
         <p class="text-gray-600 text-lg">Explora los 1025 Pokémon</p>
       </div>
 
+      <div v-if="mostVisitedPokemon" class="mb-8">
+        <div
+          class="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl shadow-md p-4 border border-yellow-200"
+        >
+          <div class="flex items-center justify-between flex-wrap gap-4">
+            <div class="flex items-center gap-4">
+              <div class="text-4xl">🏆</div>
+              <div>
+                <h3 class="text-sm font-semibold text-yellow-700 uppercase tracking-wide">
+                  Pokémon más buscado
+                </h3>
+                <div class="flex items-center gap-3 mt-1">
+                  <img
+                    :src="mostVisitedPokemon.sprite"
+                    :alt="mostVisitedPokemon.name"
+                    class="w-12 h-12 object-contain"
+                    @error="(e) => (e.target.src = notFound)"
+                  />
+                  <div>
+                    <p class="text-xl font-bold text-gray-800 capitalize">
+                      {{ formatName(mostVisitedPokemon.name) }}
+                    </p>
+                    <p class="text-sm text-gray-500">
+                      Visitado {{ mostVisitedPokemon.count }} veces
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <router-link
+              :to="`/details/${mostVisitedPokemon.id}`"
+              class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-semibold"
+            >
+              Ver Pokémon →
+            </router-link>
+          </div>
+        </div>
+      </div>
+
       <!-- Barra de búsqueda y filtros -->
       <div class="bg-white rounded-xl shadow-md p-4 mb-8">
         <div class="flex flex-col gap-4">
@@ -295,8 +334,10 @@ import { storeToRefs } from 'pinia'
 import { usePokemonListStore } from '../stores/pokemonListStore.js'
 import { formatTipos } from '../config/arrayTipo.js'
 import notFound from '../assets/images/no_found.png'
+import { useHistoryStore } from '../stores/historyStore.js'
 
 const pokemonListStore = usePokemonListStore()
+const historyStore = useHistoryStore()
 
 // Estados locales
 const searchQuery = ref('')
@@ -309,6 +350,7 @@ const showOnlyMegas = ref(false)
 
 // Obtener datos del store
 const { pokemons, isLoading, loadProgress, allPokemons } = storeToRefs(pokemonListStore)
+const { mostVisitedPokemon } = storeToRefs(historyStore)
 
 // Definir las generaciones directamente en el componente
 const generationOptions = [

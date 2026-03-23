@@ -15,6 +15,7 @@ import Swal from 'sweetalert2'
 import { usePokemonCacheStore } from './pokemonCacheStore.js'
 import { useHistoryStore } from './historyStore.js'
 
+
 export const usePokemonStore = defineStore(
   'pokemon',
   () => {
@@ -27,17 +28,14 @@ export const usePokemonStore = defineStore(
     const prefetchEnabled = ref(true)
     const loadingFromCache = ref(false)
 
-    // CORRECCIÓN: Usar objeto simple en lugar de Map para persistencia
-    const fallbackSpritesStatus = ref({}) // Objeto: { pokemonId: boolean }
+    const fallbackSpritesStatus = ref({})
 
-    // CORRECCIÓN: Timeouts como objeto simple
     const activeTimeouts = ref({
       prefetch: null,
       evolution: null,
-      forms: {}, // Objeto: { formId: timeoutId }
+      forms: {},
     })
 
-    // Obtener instancia del caché de Pokémon
     const pokemonCache = usePokemonCacheStore()
 
     // ==================== GETTERS ====================
@@ -203,7 +201,7 @@ export const usePokemonStore = defineStore(
       console.log('🧹 Todos los timeouts limpiados')
     }
 
-    // ==================== PREFETCHING CON TIMEOUTS REACTIVOS ====================
+    // ==================== PREFETCHING ====================
     const prefetchNextPokemon = (currentId) => {
       if (!prefetchEnabled.value) return
       if (!currentId) return
@@ -325,6 +323,7 @@ export const usePokemonStore = defineStore(
       isLoading.value = true
       loadingFromCache.value = false
 
+      const historyStore = useHistoryStore()
       const cachedPokemon = pokemonCache.getPokemon(id)
 
       if (cachedPokemon) {
@@ -337,9 +336,8 @@ export const usePokemonStore = defineStore(
         }
 
         pokemon.value = cachedPokemon
-        
-        // ✅ CORREGIDO: Usar cachedPokemon en lugar de pokemonData
-        const historyStore = useHistoryStore()
+
+        // Registrar visita
         historyStore.addVisit(cachedPokemon)
 
         Swal.fire({
@@ -401,6 +399,9 @@ export const usePokemonStore = defineStore(
         let pokemonData = await getPokemon(id)
         pokemonData = applySprites(pokemonData)
         pokemon.value = pokemonData
+
+        // Registrar visita
+        historyStore.addVisit(pokemonData)
 
         const speciesId = await getBaseSpeciesId(pokemonData.name, id)
 
