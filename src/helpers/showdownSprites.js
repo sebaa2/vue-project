@@ -1,273 +1,282 @@
 import { paradoxPokemon, hyphenPokemon } from './formatPoke'
 
-// Pokémon que tienen 'mega' en su nombre pero no son mega evoluciones
-const POKEMON_WITH_MEGA_IN_NAME = ['meganium', 'yanmega']
+// Constantes
+const POKEMON_WITH_MEGA_IN_NAME = new Set(['meganium', 'yanmega'])
+const DUAL_MEGA_FORMS = new Set([
+  'charizard-mega-x',
+  'charizard-mega-y',
+  'mewtwo-mega-x',
+  'mewtwo-mega-y',
+])
+
+const SPRITE_BASE_URL = 'https://play.pokemonshowdown.com/sprites'
+
+// Mapas de transformaciones para mejor rendimiento
+const NAME_TRANSFORMATIONS = new Map([
+  // GEN 1
+  ['nidoran-f', 'nidoranf'],
+  ['nidoran-m', 'nidoranm'],
+
+  // GEN 2
+  ['unown', 'unown'],
+
+  // GEN 3
+  ['deoxys-normal', 'deoxys'],
+
+  // GEN 4
+  ['shaymin-land', 'shaymin'],
+
+  // GEN 5
+  ['darmanitan-standard', 'darmanitan'],
+  ['darmanitan-galar-zen', 'darmanitan-galarzen'],
+
+  // GEN 6
+  ['pyroar-male', 'pyroar'],
+  ['zygarde-50', 'zygarde'],
+
+  // GEN 7
+  ['oricorio-pom-pom', 'oricorio-pompom'],
+  ['oricorio-baile', 'oricorio'],
+  ['minior-red-meteor', 'minior'],
+  ['necrozma-dawn', 'necrozma-dawnwings'],
+  ['necrozma-dusk', 'necrozma-duskmane'],
+
+  // GEN 8
+  ['aegislash-shield', 'aegislash'],
+  ['morpeko-full-belly', 'morpeko'],
+  ['morpeko-hangry', 'morpeko-hangry'],
+
+  // GEN 9
+  ['maushold-family-of-four', 'maushold-four'],
+  ['maushold-family-of-three', 'maushold'],
+  ['dudunsparce-two-segment', 'dudunsparce'],
+  ['dudunsparce-three-segment', 'dudunsparce-threesegment'],
+
+  // Especiales
+  ['pikachu-rock-star', 'pikachu-rockstar'],
+  ['pikachu-pop-star', 'pikachu-popstar'],
+  ['keldeo-ordinary', 'keldeo'],
+  ['mimikyu-disguised', 'mimikyu'],
+])
+
+// Patrones de transformación (ordenados por prioridad)
+const TRANSFORMATION_PATTERNS = [
+  // Squawkabilly (patrón específico)
+  {
+    test: (name) => name.startsWith('squawkabilly-') && name.endsWith('-plumage'),
+    transform: (name) => {
+      const color = name.slice(13, -8) // 'squawkabilly-'.length = 13, '-plumage'.length = 8
+      return color === 'green' ? 'squawkabilly' : `squawkabilly-${color}`
+    },
+  },
+  // Urshifu
+  {
+    test: (name) => name.startsWith('urshifu-'),
+    transform: (name) =>
+      name.replace('-single-strike', '').replace('-rapid-strike', '-rapidstrike'),
+  },
+  // Toxtricity
+  {
+    test: (name) => name.startsWith('toxtricity'),
+    transform: (name) => {
+      if (name.endsWith('-gmax')) return 'toxtricity-gmax'
+      return name.replace('-amped', '').replace('-low-key', '-lowkey')
+    },
+  },
+  // Ogerpon
+  {
+    test: (name) => name.startsWith('ogerpon-') && name.includes('-mask'),
+    transform: (name) => name.replace('-mask', ''),
+  },
+  // Minior (patrón general)
+  {
+    test: (name) => name.startsWith('minior-') && name.endsWith('-meteor'),
+    transform: (name) => name.replace('-meteor', ''),
+  },
+  // Pikachu caps
+  {
+    test: (name) => name.startsWith('pikachu-') && name.endsWith('-cap'),
+    transform: (name) => name.replace('-cap', ''),
+  },
+  // Tauros Paldea
+  {
+    test: (name) => name.startsWith('tauros-paldea-'),
+    transform: (name) => {
+      const parts = name.split('-')
+      return `${parts[0]}-${parts[1]}${parts[2]}`
+    },
+  },
+  // Género
+  {
+    test: (name) => name.endsWith('-male') || name.endsWith('-female'),
+    transform: (name) => name.replace('-male', '').replace('-female', '-f'),
+  },
+  // Incarnate forms
+  {
+    test: (name) => name.endsWith('-incarnate'),
+    transform: (name) => name.slice(0, -10), // remover '-incarnate'
+  },
+]
+
+// Función auxiliar para transformaciones simples
+const applySimpleTransformations = (name) => {
+  // Megas duales
+  if (DUAL_MEGA_FORMS.has(name)) {
+    return name.replace('-mega-', '-mega')
+  }
+
+  // Paradox Pokémon
+  if (paradoxPokemon.includes(name)) {
+    return name.startsWith('iron-')
+      ? name.replace('iron-', 'iron').replace(/-/g, '')
+      : name.replace(/-/g, '')
+  }
+
+  // Hyphen Pokémon general
+  if (hyphenPokemon.includes(name)) {
+    return name.replace(/-/g, '')
+  }
+
+  return null
+}
+
+export const formatShowdownName = (pokemonName) => {
+  // Casos especiales rápidos
+  if (POKEMON_WITH_MEGA_IN_NAME.has(pokemonName)) {
+    return pokemonName
+  }
+
+  if (pokemonName.endsWith('-mega')) {
+    return pokemonName
+  }
+
+  // Transformaciones directas
+  if (NAME_TRANSFORMATIONS.has(pokemonName)) {
+    const transformed = NAME_TRANSFORMATIONS.get(pokemonName)
+    // Si es 'unown', remover guiones
+    return pokemonName === 'unown' ? transformed.replace(/-/g, '') : transformed
+  }
+
+  // Aplicar patrones de transformación
+  for (const pattern of TRANSFORMATION_PATTERNS) {
+    if (pattern.test(pokemonName)) {
+      return pattern.transform(pokemonName)
+    }
+  }
+
+  // Transformaciones simples
+  const simpleTransform = applySimpleTransformations(pokemonName)
+  if (simpleTransform !== null) {
+    return simpleTransform
+  }
+
+  return pokemonName
+}
+
+export const shouldUseShowdown = (pokemonName) => {
+  // Usar Set para búsquedas O(1)
+  if (POKEMON_WITH_MEGA_IN_NAME.has(pokemonName)) return true
+  if (pokemonName === 'cherrim-sunshine') return true
+  if (pokemonName.endsWith('-mega')) return true
+  if (DUAL_MEGA_FORMS.has(pokemonName)) return true
+
+  // Excluir mega evoluciones no estándar
+  if (
+    pokemonName.includes('mega') &&
+    !POKEMON_WITH_MEGA_IN_NAME.has(pokemonName) &&
+    !pokemonName.endsWith('-mega') &&
+    !DUAL_MEGA_FORMS.has(pokemonName)
+  ) {
+    console.warn('Mega Pokémon con formato no estándar:', pokemonName)
+    return false
+  }
+
+  return true
+}
+
+// Cache con límite de tamaño para evitar memory leak
+const spriteCache = new Map()
+const MAX_CACHE_SIZE = 500
+
+const setSpriteCache = (key, value) => {
+  if (spriteCache.size >= MAX_CACHE_SIZE) {
+    // Eliminar el primer elemento (más antiguo)
+    const firstKey = spriteCache.keys().next().value
+    spriteCache.delete(firstKey)
+  }
+  spriteCache.set(key, value)
+}
 
 const checkSpriteExists = async (pokemonName) => {
   try {
     const showdownName = formatShowdownName(pokemonName)
-    const response = await fetch(
-      `https://play.pokemonshowdown.com/sprites/ani/${showdownName}.gif`,
-      { method: 'HEAD' },
-    )
+    const response = await fetch(`${SPRITE_BASE_URL}/ani/${showdownName}.gif`, { method: 'HEAD' })
     return response.ok
   } catch {
     return false
   }
 }
 
-// condiciones de limpieza de nombre para pokes con 2 megas
-const DUAL_MEGA_FORMS = ['charizard-mega-x', 'charizard-mega-y', 'mewtwo-mega-x', 'mewtwo-mega-y']
-
-//condiciones de nombres
-export const formatShowdownName = (pokemonName) => {
-  // Preservar nombres de Pokémon que contienen 'mega' pero no son mega evoluciones
-  if (POKEMON_WITH_MEGA_IN_NAME.includes(pokemonName)) {
-    return pokemonName
-  }
-
-  // GEN 1
-  if (pokemonName === 'nidoran-f') return 'nidoranf'
-  if (pokemonName === 'nidoran-m') return 'nidoranm'
-
-  // GEN 2
-  if (pokemonName === 'unown') return pokemonName.replace(/-/g, '')
-
-  // GEN 3
-  if (pokemonName === 'deoxys-normal') return 'deoxys'
-
-  // GEN 4
-  if (pokemonName === 'shaymin-land') return 'shaymin'
-
-  // GEN 5
-  if (pokemonName === 'darmanitan-standard') return 'darmanitan'
-  if (pokemonName === 'darmanitan-galar-zen') return 'darmanitan-galarzen'
-
-  // GEN 6
-  if (pokemonName === 'pyroar-male') return 'pyroar'
-  if (pokemonName === 'zygarde-50') return 'zygarde'
-
-  // GEN 7
-  // Oricorio
-  if (pokemonName === 'oricorio-pom-pom') return 'oricorio-pompom'
-  if (pokemonName === 'oricorio-baile') return 'oricorio'
-
-  // Minior
-  if (pokemonName === 'minior-red-meteor') return 'minior'
-  if (pokemonName.startsWith('minior-') && pokemonName.endsWith('-meteor')) {
-    return pokemonName.replace('-meteor', '')
-  }
-
-  // Necrozma
-  if (pokemonName === 'necrozma-dawn') return 'necrozma-dawnwings'
-  if (pokemonName === 'necrozma-dusk') return 'necrozma-duskmane'
-
-  //  yo solo quiero el copete bien peinado
-  if (pokemonName.startsWith('squawkabilly-') && pokemonName.endsWith('-plumage')) {
-    const color = pokemonName.replace('squawkabilly-', '').replace('-plumage', '')
-
-    return color === 'green' ? 'squawkabilly' : `squawkabilly-${color}`
-  }
-
-  // GEN 8
-  // Urshifu
-  if (pokemonName.startsWith('urshifu-')) {
-    return pokemonName.replace('-single-strike', '').replace('-rapid-strike', '-rapidstrike')
-  }
-  if (pokemonName === 'aegislash-shield') return 'aegislash'
-
-  // Toxtricity
-  if (pokemonName.startsWith('toxtricity')) {
-    if (pokemonName.endsWith('-gmax')) return 'toxtricity-gmax'
-    return pokemonName.replace('-amped', '').replace('-low-key', '-lowkey')
-  }
-
-  // Morpeko
-  if (pokemonName === 'morpeko-full-belly') return 'morpeko'
-  if (pokemonName === 'morpeko-hangry') return 'morpeko-hangry'
-
-
-  // GEN 9
-  // Maushold
-  if (pokemonName === 'maushold-family-of-four') return 'maushold-four'
-  if (pokemonName === 'maushold-family-of-three') return 'maushold'
-
-  if (pokemonName === 'dudunsparce-two-segment') {
-    return 'dudunsparce'
-  }
-  if (pokemonName === 'dudunsparce-three-segment') return 'dudunsparce-threesegment'
-
-  // Ogerpon
-  if (pokemonName.startsWith('ogerpon-') && pokemonName.includes('-mask')) {
-    return pokemonName.replace('-mask', '')
-  }
-
-  // Paradox
-  if (paradoxPokemon.includes(pokemonName)) {
-    return pokemonName.startsWith('iron-')
-      ? pokemonName.replace('iron-', 'iron').replace('-', '')
-      : pokemonName.replace('-', '')
-  }
-
-  // Tauros Paldea
-  if (pokemonName.startsWith('tauros-paldea-')) {
-    const parts = pokemonName.split('-')
-    return parts[0] + '-' + parts[1] + parts[2]
-  }
-
-  // GENERALES (todas las generaciones)
-
-  // Pikachu
-  if (pokemonName === 'pikachu-rock-star') return 'pikachu-rockstar'
-  if (pokemonName === 'pikachu-pop-star') return 'pikachu-popstar'
-  if (pokemonName.startsWith('pikachu-') && pokemonName.endsWith('-cap')) {
-    return pokemonName.replace('-cap', '')
-  }
-
-  // Keldeo
-  if (pokemonName === 'keldeo-ordinary') return 'keldeo'
-
-  // Mimikyu
-  if (pokemonName === 'mimikyu-disguised') return 'mimikyu'
-
-  // Formas incarnate
-  if (pokemonName.endsWith('-incarnate')) {
-    return pokemonName.replace('-incarnate', '')
-  }
-
-  // Género
-  if (pokemonName.endsWith('-male') || pokemonName.endsWith('-female')) {
-    return pokemonName.replace('-male', '').replace('-female', '-f')
-  }
-
-  // Hyphen general
-  if (hyphenPokemon.includes(pokemonName)) {
-    return pokemonName.replace(/-/g, '')
-  }
-
-  // Megas
-  if (DUAL_MEGA_FORMS.includes(pokemonName)) {
-    return pokemonName.replace('-mega-', '-mega')
-  }
-  if (pokemonName.endsWith('-mega')) {
-    return pokemonName
-  }
-
-  // DEFAULT
-  return pokemonName
-}
-
-export const shouldUseShowdown = (pokemonName) => {
-  // Pokémon que tienen 'mega' en su nombre pero no son mega evoluciones
-  if (POKEMON_WITH_MEGA_IN_NAME.includes(pokemonName)) {
-    return true
-  }
-
-  // Cherrim sunshine siempre usa Showdown
-  if (pokemonName === 'cherrim-sunshine') return true
-
-  // Todos los mega Pokémon con una sola forma (-mega) usan Showdown
-  if (pokemonName.endsWith('-mega')) return true
-
-  // Los mega con dos formas (mega-x, mega-y) usan Showdown
-  if (DUAL_MEGA_FORMS.includes(pokemonName)) return true
-
-  // Excluir mega evoluciones (pero no los que tienen 'mega' en su nombre)
-  if (
-    pokemonName.includes('mega') &&
-    !POKEMON_WITH_MEGA_IN_NAME.includes(pokemonName) &&
-    !pokemonName.endsWith('-mega') &&
-    !DUAL_MEGA_FORMS.includes(pokemonName)
-  ) {
-    console.log('Mega Pokémon con formato no estándar:', pokemonName)
-    return false
-  }
-
-  // Todos los demás usan Showdown
-  return true
-}
-
 export const getShowdownSprites = (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
 
   return {
-    front_default: `https://play.pokemonshowdown.com/sprites/ani/${showdownName}.gif`,
-    front_shiny: `https://play.pokemonshowdown.com/sprites/ani-shiny/${showdownName}.gif`,
-    back_default: `https://play.pokemonshowdown.com/sprites/ani-back/${showdownName}.gif`,
-    back_shiny: `https://play.pokemonshowdown.com/sprites/ani-back-shiny/${showdownName}.gif`,
+    front_default: `${SPRITE_BASE_URL}/ani/${showdownName}.gif`,
+    front_shiny: `${SPRITE_BASE_URL}/ani-shiny/${showdownName}.gif`,
+    back_default: `${SPRITE_BASE_URL}/ani-back/${showdownName}.gif`,
+    back_shiny: `${SPRITE_BASE_URL}/ani-back-shiny/${showdownName}.gif`,
   }
 }
 
-// Sprites especiales para Cherrim Sunshine
 export const CHERRIM_SUNSHINE_SPRITES = {
-  front_default: 'https://play.pokemonshowdown.com/sprites/ani/cherrim-sunshine.gif',
-  front_shiny: 'https://play.pokemonshowdown.com/sprites/ani-shiny/cherrim-sunshine.gif',
-  back_default: 'https://play.pokemonshowdown.com/sprites/ani-back/cherrim-sunshine.gif',
-  back_shiny: 'https://play.pokemonshowdown.com/sprites/ani-back-shiny/cherrim-sunshine.gif',
+  front_default: `${SPRITE_BASE_URL}/ani/cherrim-sunshine.gif`,
+  front_shiny: `${SPRITE_BASE_URL}/ani-shiny/cherrim-sunshine.gif`,
+  back_default: `${SPRITE_BASE_URL}/ani-back/cherrim-sunshine.gif`,
+  back_shiny: `${SPRITE_BASE_URL}/ani-back-shiny/cherrim-sunshine.gif`,
 }
-
-// Cache para verificación de sprites
-const spriteCache = new Map()
 
 export const getShowdownSpritesWithCheck = async (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
 
-  // Verificar si ya tenemos el resultado en caché
   if (spriteCache.has(showdownName)) {
     return spriteCache.get(showdownName)
   }
 
-  const baseUrl = 'https://play.pokemonshowdown.com/sprites'
   const exists = await checkSpriteExists(pokemonName)
 
-  let sprites
-  if (exists) {
-    sprites = {
-      front_default: `${baseUrl}/ani/${showdownName}.gif`,
-      front_shiny: `${baseUrl}/ani-shiny/${showdownName}.gif`,
-      back_default: `${baseUrl}/ani-back/${showdownName}.gif`,
-      back_shiny: `${baseUrl}/ani-back-shiny/${showdownName}.gif`,
-    }
-  } else {
-    console.log(`Usando sprite estático para: ${pokemonName}`)
-    // Fallback a sprites estáticos de Gen 5
-    sprites = {
-      front_default: `${baseUrl}/gen5/${showdownName}.png`,
-      front_shiny: `${baseUrl}/gen5-shiny/${showdownName}.png`,
-      back_default: `${baseUrl}/gen5-back/${showdownName}.png`,
-      back_shiny: `${baseUrl}/gen5-back-shiny/${showdownName}.png`,
-    }
-  }
+  const sprites = exists
+    ? {
+        front_default: `${SPRITE_BASE_URL}/ani/${showdownName}.gif`,
+        front_shiny: `${SPRITE_BASE_URL}/ani-shiny/${showdownName}.gif`,
+        back_default: `${SPRITE_BASE_URL}/ani-back/${showdownName}.gif`,
+        back_shiny: `${SPRITE_BASE_URL}/ani-back-shiny/${showdownName}.gif`,
+      }
+    : {
+        front_default: `${SPRITE_BASE_URL}/gen5/${showdownName}.png`,
+        front_shiny: `${SPRITE_BASE_URL}/gen5-shiny/${showdownName}.png`,
+        back_default: `${SPRITE_BASE_URL}/gen5-back/${showdownName}.png`,
+        back_shiny: `${SPRITE_BASE_URL}/gen5-back-shiny/${showdownName}.png`,
+      }
 
-  // Guardar en caché
-  spriteCache.set(showdownName, sprites)
+  setSpriteCache(showdownName, sprites)
   return sprites
 }
 
-// ahora si
 export const getShowdownSpritesWithFallback = (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
-  const baseUrl = 'https://play.pokemonshowdown.com/sprites'
 
-  // Primero intentamos con animados
-  const animatedSprites = {
-    front_default: `${baseUrl}/ani/${showdownName}.gif`,
-    front_shiny: `${baseUrl}/ani-shiny/${showdownName}.gif`,
-    back_default: `${baseUrl}/ani-back/${showdownName}.gif`,
-    back_shiny: `${baseUrl}/ani-back-shiny/${showdownName}.gif`,
-  }
-
-  // También preparamos los fallback de home
-  const homeSprites = {
-    front_default: `${baseUrl}/home/${showdownName}.png`,
-    front_shiny: `${baseUrl}/home-shiny/${showdownName}.png`,
-    back_default: `${baseUrl}/home/${showdownName}.png`,
-    back_shiny: `${baseUrl}/home-shiny/${showdownName}.png`,
-  }
-
-  // Devolvemos ambos y manejamos el error en el componente
   return {
-    animated: animatedSprites,
-    fallback: homeSprites,
+    animated: {
+      front_default: `${SPRITE_BASE_URL}/ani/${showdownName}.gif`,
+      front_shiny: `${SPRITE_BASE_URL}/ani-shiny/${showdownName}.gif`,
+      back_default: `${SPRITE_BASE_URL}/ani-back/${showdownName}.gif`,
+      back_shiny: `${SPRITE_BASE_URL}/ani-back-shiny/${showdownName}.gif`,
+    },
+    fallback: {
+      front_default: `${SPRITE_BASE_URL}/home/${showdownName}.png`,
+      front_shiny: `${SPRITE_BASE_URL}/home-shiny/${showdownName}.png`,
+      back_default: `${SPRITE_BASE_URL}/home/${showdownName}.png`,
+      back_shiny: `${SPRITE_BASE_URL}/home-shiny/${showdownName}.png`,
+    },
   }
 }

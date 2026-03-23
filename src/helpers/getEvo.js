@@ -44,7 +44,7 @@ export const getEvolutionChain = async (pokemonId) => {
       'marowak-alola', // Marowak de Alola
       'exeggutor-alola', // Exeggutor de Alola
       'raichu-alola', // Raichu de Alola
-      // Puedes agregar más aquí si es necesario
+      //agregar mas
     ]
 
     // 5. MAPA DE POKÉMON CON MÚLTIPLES FORMAS EVOLUTIVAS

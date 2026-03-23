@@ -239,20 +239,30 @@ onUnmounted(() => {
         </span>
 
         <!-- Contenedor para el botón Shiny y el botón escondido -->
-        <div class="relative inline-block">
+        <div class="relative inline-flex items-center gap-3">
+          <!-- Toggle Switch -->
           <button
             @click="toggleShiny"
-            :class="
-              isShiny
-                ? 'bg-purple-500 text-white'
-                : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-black'
-            "
-            class="px-4 py-2 rounded-lg shadow-md font-semibold hover:scale-105 active:scale-95 transition-all duration-200"
+            class="relative inline-flex items-center h-8 rounded-full w-14 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            :class="isShiny ? 'bg-purple-500' : 'bg-gray-300'"
           >
-            {{ isShiny ? 'Normal' : 'Shiny' }}
+            <span
+              class="inline-block w-6 h-6 transform bg-white rounded-full transition-transform duration-300 shadow-md flex items-center justify-center"
+              :class="isShiny ? 'translate-x-7' : 'translate-x-1'"
+            >
+              <span v-if="isShiny" class="text-xs">✨</span>
+              <span v-else class="text-xs"></span>
+            </span>
           </button>
 
-          <!-- Botón escondido al lado derecho del botón shiny -->
+          <!-- Texto descriptivo -->
+          <span
+            class="text-sm font-medium transition-colors duration-300"
+            :class="isShiny ? 'text-purple-600' : 'text-gray-600'"
+          >
+            {{ isShiny ? 'Modo Shiny' : 'Modo Normal' }}
+          </span>
+
           <button
             @click="handleHiddenButtonClick"
             class="hidden-button"
