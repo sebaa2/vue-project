@@ -1,3 +1,4 @@
+// routes.js
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../pages/Home.vue'
 import Details from '../pages/Details.vue'
@@ -5,13 +6,13 @@ import Details from '../pages/Details.vue'
 const routes = [
   {
     path: '/',
+    name: 'home',
     component: Home,
-    children: [
-      {
-        path: '/details/:id',
-        component: Details,
-      },
-    ],
+  },
+  {
+    path: '/details/:id',
+    name: 'details',
+    component: Details,
   },
 ]
 

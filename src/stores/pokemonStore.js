@@ -50,8 +50,17 @@ export const usePokemonStore = defineStore(
       return pokemon.value.types.map((type) => type.type.name)
     })
 
+    // Código NUEVO:
     const formattedTypes = computed(() => {
-      return types.value.map((type) => formatTipos(type))
+      if (!pokemon.value) return []
+      // Manejar tanto el formato antiguo como el nuevo
+      const typesList = pokemon.value.types.map((type) => {
+        if (typeof type === 'string') {
+          return formatTipos(type)
+        }
+        return formatTipos(type.type?.name || type)
+      })
+      return typesList
     })
 
     const currentSprite = computed(() => {
@@ -349,6 +358,8 @@ export const usePokemonStore = defineStore(
         }
 
         pokemon.value = cachedPokemon
+        const historyStore = useHistoryStore()
+        historyStore.addVisit(pokemonData)
 
         Swal.fire({
           title: 'Cargando desde caché...',
@@ -512,34 +523,36 @@ export const usePokemonStore = defineStore(
       }
     }
 
-const goToEvolution = async (evolutionName) => {
-  let pokemonId
-  
-  // Casos especiales que necesitan mapeo explícito
-  const specialEvolutions = {
-    'dudunsparce': 'dudunsparce-two-segment', // Por defecto la forma de 2 segmentos
-    'urshifu': 892,
-    'urshifu-rapid-strike': 892,
-    'urshifu-single-strike': 892
-  }
-  
-  if (specialEvolutions[evolutionName]) {
-    if (typeof specialEvolutions[evolutionName] === 'number') {
-      pokemonId = specialEvolutions[evolutionName]
-    } else {
-      // Es un nombre de forma, buscar por nombre
-      const pokemonRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${specialEvolutions[evolutionName]}/`)
-      const pokemonData = await pokemonRes.json()
-      pokemonId = pokemonData.id
+    const goToEvolution = async (evolutionName) => {
+      let pokemonId
+
+      // Casos especiales que necesitan mapeo explícito
+      const specialEvolutions = {
+        dudunsparce: 'dudunsparce-two-segment', // Por defecto la forma de 2 segmentos
+        urshifu: 892,
+        'urshifu-rapid-strike': 892,
+        'urshifu-single-strike': 892,
+      }
+
+      if (specialEvolutions[evolutionName]) {
+        if (typeof specialEvolutions[evolutionName] === 'number') {
+          pokemonId = specialEvolutions[evolutionName]
+        } else {
+          // Es un nombre de forma, buscar por nombre
+          const pokemonRes = await fetch(
+            `https://pokeapi.co/api/v2/pokemon/${specialEvolutions[evolutionName]}/`,
+          )
+          const pokemonData = await pokemonRes.json()
+          pokemonId = pokemonData.id
+        }
+      } else {
+        const pokemonRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${evolutionName}/`)
+        const pokemonData = await pokemonRes.json()
+        pokemonId = pokemonData.id
+      }
+
+      await loadPokemon(pokemonId)
     }
-  } else {
-    const pokemonRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${evolutionName}/`)
-    const pokemonData = await pokemonRes.json()
-    pokemonId = pokemonData.id
-  }
-  
-  await loadPokemon(pokemonId)
-}
 
     const handleImageError = (e, notFoundImg) => {
       if (!pokemon.value) return

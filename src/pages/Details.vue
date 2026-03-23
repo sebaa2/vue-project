@@ -1,17 +1,19 @@
+<!-- Details.vue -->
 <script setup>
 import { useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { ref, onMounted, watch, nextTick, computed, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePokemonStore } from '../stores/pokemonStore.js'
 import { useSearchStore } from '../stores/searchStore.js'
-import { useEasterEggStore } from '../stores/EastereggStore.js' // Importar el store de Easter Eggs
+import { useEasterEggStore } from '../stores/EastereggStore.js'
 import BarChar from '../components/BarChar.vue'
 import RadarChar from '../components/RadarChar.vue'
 import EvolutionChain from '../components/EvolutionChain.vue'
 import EeveeEvolutions from '../components/EeveeEvolutions.vue'
 import { formatPoke } from '../helpers/formatPoke.js'
 import { formatTipos } from '../config/arrayTipo.js'
-import notFound from '../assets/images/no_found.png'
+import notFound from '../assets/images/noFound.png'
 
 // PrimeVue
 import VirtualScroller from 'primevue/virtualscroller'
@@ -21,9 +23,10 @@ import specialIcon from '../assets/categories/special.png'
 import statusIcon from '../assets/categories/status.png'
 
 const route = useRoute()
+const router = useRouter()
 const pokemonStore = usePokemonStore()
 const searchStore = useSearchStore()
-const easterEggStore = useEasterEggStore() // Inicializar el store de Easter Eggs
+const easterEggStore = useEasterEggStore()
 
 const categoryIcon = {
   physical: physicalIcon,
@@ -53,7 +56,7 @@ const {
 
 const {
   searchTerm,
-  searchTermDebounced, // ← IMPORTANTE: añadido para usar el término con debounce
+  searchTermDebounced,
   selectedType,
   selectedCategory,
   sortBy,
@@ -84,6 +87,11 @@ const isShiny = ref(false)
 const activeForm = ref(null)
 const expandedMove = ref(null)
 
+// Función para navegar al home
+const goToHome = () => {
+  router.push('/')
+}
+
 // Computed para detectar si es una forma Gigantamax
 const isGigantamax = computed(() => {
   return pokemon.value?.name?.includes('-gmax') || false
@@ -108,11 +116,9 @@ const categoriaOptions = computed(() => {
 })
 
 // Computed para movimientos filtrados y ordenados
-// ✅ CORREGIDO: usa searchTermDebounced en lugar de searchTerm
 const filteredAndSortedMoves = computed(() => {
   let moves = [...movesPokemon.value]
 
-  // Usar searchTermDebounced (con debounce) para filtrar
   const searchValue = searchTermDebounced.value
 
   if (searchValue) {
@@ -124,17 +130,14 @@ const filteredAndSortedMoves = computed(() => {
     )
   }
 
-  // Filtrar por tipo
   if (selectedType.value !== 'all') {
     moves = moves.filter((move) => move.type === selectedType.value)
   }
 
-  // Filtrar por categoría
   if (selectedCategory.value !== 'all') {
     moves = moves.filter((move) => move.category === selectedCategory.value)
   }
 
-  // Ordenar
   moves.sort((a, b) => {
     let aVal = a[sortBy.value]
     let bVal = b[sortBy.value]
@@ -167,7 +170,6 @@ const handleHiddenButtonClick = () => {
 const handleSelectForm = async (form) => {
   activeForm.value = form.pokemon.name
   await selectForm(form)
-  // Resetear filtros al cambiar de forma
   resetFilters()
 }
 
@@ -212,7 +214,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // Limpiar cualquier timeout pendiente
   if (searchStore._debounceTimeout) {
     clearTimeout(searchStore._debounceTimeout)
   }
@@ -224,6 +225,30 @@ onUnmounted(() => {
 
   <div v-else-if="pokemon">
     <div class="w-full max-w-6xl mx-auto rounded-xl p-6 md:p-10 shadow-lg">
+      <!-- Botón de volver al inicio -->
+      <div class="mb-4">
+        <button
+          @click="goToHome"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200 shadow-md hover:shadow-lg"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            />
+          </svg>
+          Volver al Inicio
+        </button>
+      </div>
+
       <h1 class="font-black md:text-3xl text-xl text-red-900 mb-2">
         {{ formatPoke(pokemon.name) }}
       </h1>
@@ -238,9 +263,7 @@ onUnmounted(() => {
           {{ tipo.tipo }}
         </span>
 
-        <!-- Contenedor para el botón Shiny y el botón escondido -->
         <div class="relative inline-flex items-center gap-3">
-          <!-- Toggle Switch -->
           <button
             @click="toggleShiny"
             class="relative inline-flex items-center h-8 rounded-full w-14 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
@@ -255,7 +278,6 @@ onUnmounted(() => {
             </span>
           </button>
 
-          <!-- Texto descriptivo -->
           <span
             class="text-sm font-medium transition-colors duration-300"
             :class="isShiny ? 'text-purple-600' : 'text-gray-600'"
@@ -282,7 +304,6 @@ onUnmounted(() => {
 
       <br />
 
-      <!-- SPRITES -->
       <div class="grid grid-cols-1 sm:grid-cols-2 place-items-center gap-1">
         <div class="text-center">
           <img
@@ -306,7 +327,6 @@ onUnmounted(() => {
         <p class="text-xs text-gray-500">Usando sprite estático (GIF no disponible)</p>
       </div>
 
-      <!-- FORMAS -->
       <div v-if="filteredForms.length > 1" class="mt-4 text-center">
         <h2 class="text-lg sm:text-xl md:text-2xl font-bold">Formas</h2>
         <div class="flex flex-wrap justify-center gap-1 sm:gap-2 md:gap-3 mt-2">
@@ -326,7 +346,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- EVOLUCIONES -->
       <EeveeEvolutions
         :evolutions="evolutions"
         :current-pokemon="pokemon.name"
@@ -340,7 +359,6 @@ onUnmounted(() => {
         :on-go-to-evolution="goToEvolution"
       />
 
-      <!-- STATS -->
       <div class="mt-8">
         <button
           @click="changeChart"
@@ -360,12 +378,10 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- MOVIMIENTOS CON VIRTUAL SCROLLER - Ocultar si es Gigantamax -->
       <div v-if="!isGigantamax" class="mt-8">
         <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
           <h2 class="text-2xl font-bold">Movimientos</h2>
 
-          <!-- Indicador de filtros activos -->
           <div v-if="isSearchActive" class="text-sm text-gray-500">
             {{ filteredAndSortedMoves.length }} / {{ movesPokemon.length }} movimientos
             <button @click="resetFilters" class="ml-2 text-red-500 hover:text-red-700">
@@ -374,7 +390,6 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- BARRA DE BÚSQUEDA Y FILTROS CON DEBOUNCE -->
         <div class="mb-4 flex flex-wrap gap-2">
           <div class="relative">
             <input
@@ -384,7 +399,6 @@ onUnmounted(() => {
               placeholder="🔍 Buscar movimiento..."
               class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-8"
             />
-            <!-- Indicador de escritura -->
             <div v-if="isTyping" class="absolute right-2 top-1/2 transform -translate-y-1/2">
               <div
                 class="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"
@@ -413,7 +427,6 @@ onUnmounted(() => {
           </select>
         </div>
 
-        <!-- VIRTUAL SCROLLER PARA MOVIMIENTOS -->
         <VirtualScroller
           :items="filteredAndSortedMoves"
           :itemSize="70"
@@ -427,9 +440,7 @@ onUnmounted(() => {
               class="hover:bg-gray-50 transition-colors"
               :class="{ 'bg-gray-50': index % 2 === 0, 'bg-white': index % 2 === 1 }"
             >
-              <!-- Fila principal -->
               <div class="flex items-center p-3 gap-2">
-                <!-- Columna Tipo -->
                 <div class="w-24">
                   <span
                     :class="formatTipos(item.type).color"
@@ -439,7 +450,6 @@ onUnmounted(() => {
                   </span>
                 </div>
 
-                <!-- Columna Categoría -->
                 <div class="w-28">
                   <span
                     :class="{
@@ -459,14 +469,12 @@ onUnmounted(() => {
                   </span>
                 </div>
 
-                <!-- Columna Movimiento -->
                 <div class="flex-1">
                   <span class="font-medium text-gray-800">
                     {{ formatName(item.name) }}
                   </span>
                 </div>
 
-                <!-- Columna Poder -->
                 <div class="w-16 text-center text-gray-600">
                   {{
                     item.power !== undefined && item.power !== null && item.power !== '-'
@@ -475,12 +483,10 @@ onUnmounted(() => {
                   }}
                 </div>
 
-                <!-- Columna PP -->
                 <div class="w-16 text-center text-gray-600">
                   {{ item.pp || '—' }}
                 </div>
 
-                <!-- Botón expandir/colapsar -->
                 <button
                   @click="toggleMoveDetails(item.name)"
                   class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition"
@@ -491,7 +497,6 @@ onUnmounted(() => {
                 </button>
               </div>
 
-              <!-- Fila expandida con detalles -->
               <div v-if="expandedMove === item.name" class="px-3 pb-3">
                 <div
                   class="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 border-l-4 border-blue-400"
@@ -517,7 +522,6 @@ onUnmounted(() => {
             </div>
           </template>
 
-          <!-- Template cuando no hay movimientos -->
           <template #empty>
             <div class="flex items-center justify-center h-32 text-gray-500">
               No se encontraron movimientos.
@@ -533,8 +537,6 @@ onUnmounted(() => {
         </VirtualScroller>
       </div>
 
-      <!-- Mensaje para formas Gigantamax -->
-      <!-- Mensaje aún más simple -->
       <div v-else class="mt-8 text-center text-gray-400 italic">
         Sin movimientos disponibles para formas Gigantamax
       </div>
