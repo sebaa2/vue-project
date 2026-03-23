@@ -77,7 +77,7 @@
             </button>
           </div>
 
-          <!-- Fila 2: Filtros (Tipo 1, Tipo 2, Generación) -->
+          <!-- Fila 2: Filtros (Tipo 1, Tipo 2, Generación, Megas) -->
           <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Filtro Tipo Principal -->
             <div>
@@ -121,18 +121,18 @@
                 </option>
               </select>
             </div>
-          </div>
 
-          <!-- Filtro de  megas -->
-          <div class="flex items-end">
-            <label class="flex items-center gap-2 cursor-pointer pb-2">
-              <input
-                type="checkbox"
-                v-model="showOnlyMegas"
-                class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500"
-              />
-              <span class="text-sm font-medium text-gray-700">Mostrar solo Mega Evoluciones</span>
-            </label>
+            <!-- Filtro Megas -->
+            <div class="flex items-end">
+              <label class="flex items-center gap-2 cursor-pointer pb-2">
+                <input
+                  type="checkbox"
+                  v-model="showOnlyMegas"
+                  class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500"
+                />
+                <span class="text-sm font-medium text-gray-700">Solo Mega Evoluciones</span>
+              </label>
+            </div>
           </div>
 
           <!-- Fila 3: Botón de limpiar filtros y contador -->
@@ -325,6 +325,7 @@
         </select>
       </div>
     </div>
+    <ScrollToTop />
   </div>
 </template>
 
@@ -332,6 +333,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePokemonListStore } from '../stores/pokemonListStore.js'
+import ScrollToTop from '../components/ScrollToTop.vue'
 import { formatTipos } from '../config/arrayTipo.js'
 import notFound from '../assets/images/no_found.png'
 import { useHistoryStore } from '../stores/historyStore.js'

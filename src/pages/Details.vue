@@ -6,6 +6,7 @@ import { storeToRefs } from 'pinia'
 import { usePokemonStore } from '../stores/pokemonStore.js'
 import { useSearchStore } from '../stores/searchStore.js'
 import { useEasterEggStore } from '../stores/EastereggStore.js'
+import ScrollToTop from '../components/ScrollToTop.vue'
 import BarChar from '../components/BarChar.vue'
 import RadarChar from '../components/RadarChar.vue'
 import EvolutionChain from '../components/EvolutionChain.vue'
@@ -223,7 +224,10 @@ onUnmounted(() => {
     </div>
 
     <h1 class="font-black md:text-3xl text-xl text-red-900 mb-2">
-      {{ formatPoke(pokemon.name) }}
+      <span>{{ formatPoke(pokemon.name) }}</span>
+      <span class="text-gray-400 text-base font-mono bg-gray-100 px-2 py-1 rounded-md">
+        #{{ String(pokemon.id).padStart(3, '0') }}
+      </span>
     </h1>
 
     <!-- Tipos y shiny toggle -->
@@ -503,6 +507,7 @@ onUnmounted(() => {
     <div v-else class="mt-8 text-center text-gray-400 italic">
       Sin movimientos disponibles para formas Gigantamax
     </div>
+    <ScrollToTop />
   </div>
 
   <div v-else class="min-h-screen flex items-center justify-center">

@@ -3,39 +3,31 @@
     <h1 class="text-3xl font-bold text-center">Pokemon + Vite</h1>
 
     <!-- Mostrar el Pokémon más buscado SOLO en home -->
-    <div v-if="isHomeRoute && mostVisitedPokemon" class="mt-4 max-w-md mx-auto">
+    <div v-if="isHomeRoute && mostVisitedPokemon" class="mt-3 max-w-sm mx-auto">
       <div
-        class="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl shadow-lg p-3 cursor-pointer hover:scale-105 transition-transform duration-300"
+        class="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl shadow-md px-4 py-2 cursor-pointer hover:scale-105 transition-transform duration-300 flex items-center gap-3"
         @click="goToPokemonDetails"
       >
-        <div class="flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3 flex-1">
-            <div class="text-3xl">🏆</div>
-            <div class="flex-1">
-              <p class="text-xs font-semibold text-yellow-100 uppercase tracking-wide">
-                Pokémon más buscado
-              </p>
-              <div class="flex items-center gap-2 mt-1">
-                <img
-                  :src="mostVisitedPokemon.sprite"
-                  :alt="mostVisitedPokemon.name"
-                  class="w-10 h-10 object-contain bg-white rounded-full p-1"
-                  @error="handleImageError"
-                />
-                <div>
-                  <p class="text-sm font-bold text-white capitalize">
-                    {{ formatName(mostVisitedPokemon.name) }}
-                  </p>
-                  <p class="text-xs text-yellow-100">
-                    {{ mostVisitedPokemon.count }}
-                    {{ mostVisitedPokemon.count === 1 ? 'visita' : 'visitas' }}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="text-white text-xl">→</div>
+        <span class="text-2xl">🏆</span>
+        <img
+          :src="mostVisitedPokemon.sprite"
+          :alt="mostVisitedPokemon.name"
+          class="w-10 h-10 object-contain bg-white rounded-full p-1"
+          @error="handleImageError"
+        />
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-semibold text-yellow-100 uppercase tracking-wide">
+            Pokémon más buscado
+          </p>
+          <p class="text-sm font-bold text-white capitalize truncate">
+            {{ formatName(mostVisitedPokemon.name) }}
+          </p>
+          <p class="text-xs text-yellow-100">
+            {{ mostVisitedPokemon.count }}
+            {{ mostVisitedPokemon.count === 1 ? 'visita' : 'visitas' }}
+          </p>
         </div>
+        <span class="text-white text-xl">→</span>
       </div>
     </div>
 

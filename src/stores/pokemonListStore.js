@@ -23,6 +23,34 @@ export const usePokemonListStore = defineStore('pokemonList', () => {
     { id: 9, name: 'Generación IX', range: [899, 1025], description: 'Paldea (899-1025)' },
   ]
 
+  // 🆕 FUNCIÓN DE FILTRO MEJORADA - Excluye TODAS las formas alternativas
+  const filterSpecialForms = (pokemonList) => {
+    return pokemonList.filter((pokemon) => {
+      const name = pokemon.name.toLowerCase()
+
+      // Para Koraidon: SOLO mantener la forma exacta 'koraidon'
+      if (name.startsWith('koraidon')) {
+        // Solo mantener si es EXACTAMENTE 'koraidon'
+        return name === 'koraidon'
+      }
+
+      // Para Miraidon: SOLO mantener la forma exacta 'miraidon'
+      if (name.startsWith('miraidon')) {
+        // Solo mantener si es EXACTAMENTE 'miraidon'
+        return name === 'miraidon'
+      }
+
+      // Para Zygarde: excluir formas específicas
+      const problematicZygarde = ['zygarde-10-power-construct', 'zygarde-50-power-construct']
+      if (problematicZygarde.includes(name)) {
+        return false
+      }
+
+      // Para el resto de Pokémon, mantenerlos todos
+      return true
+    })
+  }
+
   // Función para obtener generación por ID
   const getGenerationByNumber = (id) => {
     for (const gen of generations) {
@@ -98,22 +126,44 @@ export const usePokemonListStore = defineStore('pokemonList', () => {
         await new Promise((resolve) => setTimeout(resolve, 100))
       }
 
-      pokemons.value = allPokemonData.sort((a, b) => a.id - b.id)
+      // Ordenar por ID
+      const sortedData = allPokemonData.sort((a, b) => a.id - b.id)
 
-      // Verificar datos (puedes quitar esto después)
-      console.log('Total Pokémon cargados:', pokemons.value.length)
+      // 🔍 Log para ver todas las formas ANTES del filtro
+      const allKoraidonForms = sortedData.filter((p) => p.name.includes('koraidon'))
+      const allMiraidonForms = sortedData.filter((p) => p.name.includes('miraidon'))
       console.log(
-        'Generación de Bulbasaur (ID 1):',
-        pokemons.value.find((p) => p.id === 1)?.generation,
+        '📊 TODAS las formas de Koraidon ANTES del filtro:',
+        allKoraidonForms.map((p) => ({
+          id: p.id,
+          name: p.name,
+        })),
       )
       console.log(
-        'Generación de Pikachu (ID 25):',
-        pokemons.value.find((p) => p.id === 25)?.generation,
+        '📊 TODAS las formas de Miraidon ANTES del filtro:',
+        allMiraidonForms.map((p) => ({
+          id: p.id,
+          name: p.name,
+        })),
+      )
+
+      // Aplicar filtro
+      const filteredData = filterSpecialForms(sortedData)
+
+      pokemons.value = filteredData
+
+      // 🔍 Log para ver las formas DESPUÉS del filtro
+      const koraidonAfter = pokemons.value.filter((p) => p.name.includes('koraidon'))
+      const miraidonAfter = pokemons.value.filter((p) => p.name.includes('miraidon'))
+      console.log(
+        '✅ Formas de Koraidon DESPUÉS del filtro:',
+        koraidonAfter.map((p) => p.name),
       )
       console.log(
-        'Generación de Chikorita (ID 152):',
-        pokemons.value.find((p) => p.id === 152)?.generation,
+        '✅ Formas de Miraidon DESPUÉS del filtro:',
+        miraidonAfter.map((p) => p.name),
       )
+      console.log('🗑️ Total formas excluidas:', allPokemonData.length - pokemons.value.length)
     } catch (error) {
       console.error('Error cargando lista de Pokémon:', error)
     } finally {
