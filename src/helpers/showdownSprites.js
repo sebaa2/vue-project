@@ -243,12 +243,16 @@ export const getShowdownSprites = (pokemonName) => {
   return buildSpriteObject(SPRITE_URLS.BASE, SPRITE_URLS.ANI, showdownName)
 }
 
-// Sprites especiales para Cherrim Sunshine
-export const CHERRIM_SUNSHINE_SPRITES = buildSpriteObject(
-  SPRITE_URLS.BASE,
-  SPRITE_URLS.ANI,
-  'cherrim-sunshine',
-)
+// ✅ CORREGIDO: Sprites especiales para Cherrim Sunshine usando URLs directas de PokeAPI
+export const CHERRIM_SUNSHINE_SPRITES = {
+  front_default: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/421.png',
+  front_shiny:
+    'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/421.png',
+  back_default:
+    'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/421.png',
+  back_shiny:
+    'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/shiny/421.png',
+}
 
 // Cache para verificación de sprites
 const spriteCheckCache = new Map()

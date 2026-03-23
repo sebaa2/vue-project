@@ -39,7 +39,7 @@
           </div>
 
           <!-- Fila 2: Filtros (Tipo 1, Tipo 2, Generación) -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Filtro Tipo Principal -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1"> Tipo Principal </label>
@@ -82,6 +82,18 @@
                 </option>
               </select>
             </div>
+          </div>
+
+          <!-- Filtro de  megas -->
+          <div class="flex items-end">
+            <label class="flex items-center gap-2 cursor-pointer pb-2">
+              <input
+                type="checkbox"
+                v-model="showOnlyMegas"
+                class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500"
+              />
+              <span class="text-sm font-medium text-gray-700">Mostrar solo Mega Evoluciones</span>
+            </label>
           </div>
 
           <!-- Fila 3: Botón de limpiar filtros y contador -->
@@ -127,6 +139,12 @@
               class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full"
             >
               📅 {{ getGenerationName(selectedGeneration) }}
+            </span>
+            <span
+              v-if="showOnlyMegas"
+              class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full"
+            >
+              ⚡ Solo Megas
             </span>
           </div>
         </div>
@@ -287,6 +305,7 @@ const selectedSecondaryType = ref('all')
 const selectedGeneration = ref('all')
 const currentPage = ref(1)
 const itemsPerPage = ref(24)
+const showOnlyMegas = ref(false)
 
 // Obtener datos del store
 const { pokemons, isLoading, loadProgress, allPokemons } = storeToRefs(pokemonListStore)
@@ -346,13 +365,36 @@ const getGenerationName = (genId) => {
   return gen ? gen.name : `Gen ${genId}`
 }
 
+// Función para identificar si un Pokémon es una Mega Evolución
+const isMegaPokemon = (name) => {
+  const lowerName = name.toLowerCase()
+
+  // Las Mega Evoluciones SIEMPRE tienen "-mega" en el nombre
+  // y NO son Meganium, Yanmega, etc.
+  if (!lowerName.includes('mega')) {
+    return false
+  }
+
+  // Excepciones: Pokémon que tienen "mega" pero NO son Mega Evoluciones
+  const exceptions = ['meganium', 'yanmega']
+
+  // Verificar si es una excepción
+  if (exceptions.includes(lowerName)) {
+    return false
+  }
+
+  // Si tiene "-mega" y no es excepción, es Mega Evolución
+  return lowerName.includes('-mega')
+}
+
 // Verificar si hay filtros activos
 const hasActiveFilters = computed(() => {
   return (
     searchQuery.value !== '' ||
     selectedPrimaryType.value !== 'all' ||
     selectedSecondaryType.value !== 'all' ||
-    selectedGeneration.value !== 'all'
+    selectedGeneration.value !== 'all' ||
+    showOnlyMegas.value
   )
 })
 
@@ -393,6 +435,11 @@ const filteredPokemons = computed(() => {
         (pokemon) => pokemon.id >= gen.range[0] && pokemon.id <= gen.range[1],
       )
     }
+  }
+
+  // Filtrar por Megas (checkbox)
+  if (showOnlyMegas.value) {
+    filtered = filtered.filter((pokemon) => isMegaPokemon(pokemon.name))
   }
 
   return filtered
@@ -506,6 +553,7 @@ const resetAllFilters = () => {
   selectedPrimaryType.value = 'all'
   selectedSecondaryType.value = 'all'
   selectedGeneration.value = 'all'
+  showOnlyMegas.value = false
   currentPage.value = 1
 }
 
@@ -522,7 +570,14 @@ const handleImageError = (e) => {
 
 // Watch para resetear página cuando cambian los filtros
 watch(
-  [searchQuery, selectedPrimaryType, selectedSecondaryType, selectedGeneration, itemsPerPage],
+  [
+    searchQuery,
+    selectedPrimaryType,
+    selectedSecondaryType,
+    selectedGeneration,
+    showOnlyMegas,
+    itemsPerPage,
+  ],
   () => {
     currentPage.value = 1
   },

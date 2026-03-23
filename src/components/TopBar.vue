@@ -2,7 +2,8 @@
   <header class="bg-red-700 text-white mb-4 py-8 px-6 relative">
     <h1 class="text-3xl font-bold text-center">Pokemon + Vite</h1>
 
-    <div class="flex gap-4 justify-center mt-4">
+    <!-- Contenedor de búsqueda - solo visible si NO estamos en Home -->
+    <div v-if="!isHomeRoute" class="flex gap-4 justify-center mt-4">
       <div class="w-96 relative">
         <!-- INPUT DE BÚSQUEDA -->
         <div class="relative">
@@ -93,11 +94,19 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router' // Importar useRoute
 import VirtualScroller from 'primevue/virtualscroller'
 import { getSearchPoke } from '../helpers/getSearchPoke'
 import { formatPoke } from '../helpers/formatPoke'
 
 // ==================== STATE ====================
+const route = useRoute() // Obtener la ruta actual
+
+// Computed para verificar si estamos en la ruta Home
+const isHomeRoute = computed(() => {
+  return route.path === '/' || route.path === '/home'
+})
+
 const pokemons = ref([])
 const isLoading = ref(true)
 const loadingProgress = ref(0)

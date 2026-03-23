@@ -13,6 +13,7 @@ import {
 } from '../helpers/showdownSprites.js'
 import Swal from 'sweetalert2'
 import { usePokemonCacheStore } from './pokemonCacheStore.js'
+import { useHistoryStore } from './historyStore.js'
 
 export const usePokemonStore = defineStore(
   'pokemon',
@@ -24,7 +25,7 @@ export const usePokemonStore = defineStore(
     const movesPokemon = ref([])
     const isLoading = ref(false)
     const prefetchEnabled = ref(true)
-    const loadingFromCache = ref(false) // NUEVO: faltaba esta variable
+    const loadingFromCache = ref(false)
 
     // CORRECCIÓN: Usar objeto simple en lugar de Map para persistencia
     const fallbackSpritesStatus = ref({}) // Objeto: { pokemonId: boolean }
@@ -50,10 +51,8 @@ export const usePokemonStore = defineStore(
       return pokemon.value.types.map((type) => type.type.name)
     })
 
-    // Código NUEVO:
     const formattedTypes = computed(() => {
       if (!pokemon.value) return []
-      // Manejar tanto el formato antiguo como el nuevo
       const typesList = pokemon.value.types.map((type) => {
         if (typeof type === 'string') {
           return formatTipos(type)
@@ -68,7 +67,6 @@ export const usePokemonStore = defineStore(
       const spriteTypes = ['front_default', 'front_shiny', 'back_default', 'back_shiny']
       const sprites = {}
 
-      // CORRECCIÓN: Acceder al objeto en lugar de Map
       const useFallback = fallbackSpritesStatus.value[pokemon.value.id] || false
 
       spriteTypes.forEach((type) => {
@@ -130,7 +128,6 @@ export const usePokemonStore = defineStore(
 
     const isFromCache = computed(() => loadingFromCache.value)
 
-    // Getter para saber si hay timeouts activos
     const hasActiveTimeouts = computed(() => {
       return (
         activeTimeouts.value.prefetch !== null ||
@@ -152,7 +149,6 @@ export const usePokemonStore = defineStore(
         pokemonData.sprites = { ...pokemonData.sprites, ...showdownSprites.animated }
         pokemonData._fallbackSprites = showdownSprites.fallback
 
-        // Resetear estado de fallback para este Pokémon
         fallbackSpritesStatus.value[pokemonData.id] = false
       }
 
@@ -162,7 +158,6 @@ export const usePokemonStore = defineStore(
     const getBaseSpeciesId = async (pokemonName, currentId) => {
       if (!pokemonName.includes('-')) return currentId
 
-      // Intentar obtener del caché primero
       const cacheKey = `species_base_${pokemonName.split('-')[0]}`
       const cachedBaseId = pokemonCache.getMetadata(cacheKey)
 
@@ -178,7 +173,6 @@ export const usePokemonStore = defineStore(
           const speciesData = await speciesRes.json()
           const baseId = speciesData.id
 
-          // Guardar en caché
           pokemonCache.setMetadata(cacheKey, baseId)
 
           return baseId
@@ -190,21 +184,17 @@ export const usePokemonStore = defineStore(
       return currentId
     }
 
-    // Función para limpiar timeouts
     const clearAllTimeouts = () => {
-      // Limpiar prefetch
       if (activeTimeouts.value.prefetch) {
         clearTimeout(activeTimeouts.value.prefetch)
         activeTimeouts.value.prefetch = null
       }
 
-      // Limpiar evolution
       if (activeTimeouts.value.evolution) {
         clearTimeout(activeTimeouts.value.evolution)
         activeTimeouts.value.evolution = null
       }
 
-      // Limpiar timeouts de formas
       Object.values(activeTimeouts.value.forms).forEach((timeout) => {
         clearTimeout(timeout)
       })
@@ -214,7 +204,6 @@ export const usePokemonStore = defineStore(
     }
 
     // ==================== PREFETCHING CON TIMEOUTS REACTIVOS ====================
-
     const prefetchNextPokemon = (currentId) => {
       if (!prefetchEnabled.value) return
       if (!currentId) return
@@ -222,13 +211,11 @@ export const usePokemonStore = defineStore(
       const nextId = currentId + 1
       if (nextId > 1025) return
 
-      // Limpiar timeout anterior si existe
       if (activeTimeouts.value.prefetch) {
         clearTimeout(activeTimeouts.value.prefetch)
         activeTimeouts.value.prefetch = null
       }
 
-      // Crear nuevo timeout
       activeTimeouts.value.prefetch = setTimeout(() => {
         if (!pokemonCache.hasPokemon(nextId)) {
           console.log(`🔄 Precargando Pokémon #${nextId}...`)
@@ -256,13 +243,11 @@ export const usePokemonStore = defineStore(
       const mainEvolution = evolutionChain[0]
       if (!mainEvolution || !mainEvolution.id) return
 
-      // Limpiar timeout anterior
       if (activeTimeouts.value.evolution) {
         clearTimeout(activeTimeouts.value.evolution)
         activeTimeouts.value.evolution = null
       }
 
-      // Crear nuevo timeout
       activeTimeouts.value.evolution = setTimeout(() => {
         if (!pokemonCache.hasPokemon(mainEvolution.id)) {
           console.log(`🔄 Precargando evolución: ${mainEvolution.name}...`)
@@ -287,7 +272,6 @@ export const usePokemonStore = defineStore(
       if (!prefetchEnabled.value) return
       if (!formsList || formsList.length === 0) return
 
-      // Tomar máximo 3 formas para precargar
       const formsToPrefetch = formsList
         .filter((form) => {
           const formId = form.pokemon.url.split('/').filter(Boolean).pop()
@@ -298,13 +282,11 @@ export const usePokemonStore = defineStore(
       formsToPrefetch.forEach((form, index) => {
         const formId = form.pokemon.url.split('/').filter(Boolean).pop()
 
-        // Limpiar timeout existente para esta forma
         if (activeTimeouts.value.forms[formId]) {
           clearTimeout(activeTimeouts.value.forms[formId])
           delete activeTimeouts.value.forms[formId]
         }
 
-        // Crear timeout con delay progresivo
         const timeout = setTimeout(
           () => {
             console.log(`🔄 Precargando forma: ${form.pokemon.name}...`)
@@ -337,9 +319,7 @@ export const usePokemonStore = defineStore(
     }
 
     // ==================== ACTIONS ====================
-
     const loadPokemon = async (id) => {
-      // Limpiar timeouts anteriores
       clearAllTimeouts()
 
       isLoading.value = true
@@ -351,15 +331,16 @@ export const usePokemonStore = defineStore(
         console.log(`📀 Cargando Pokémon ${id} desde caché`)
         loadingFromCache.value = true
 
-        // Restaurar estado de fallback desde caché
         const savedFallbackStatus = pokemonCache.getMetadata(`fallback_${id}`)
         if (savedFallbackStatus !== undefined) {
           fallbackSpritesStatus.value[id] = savedFallbackStatus
         }
 
         pokemon.value = cachedPokemon
+        
+        // ✅ CORREGIDO: Usar cachedPokemon en lugar de pokemonData
         const historyStore = useHistoryStore()
-        historyStore.addVisit(pokemonData)
+        historyStore.addVisit(cachedPokemon)
 
         Swal.fire({
           title: 'Cargando desde caché...',
@@ -406,7 +387,6 @@ export const usePokemonStore = defineStore(
         return
       }
 
-      // Si no está en caché, cargar normalmente
       console.log(`🌐 Cargando Pokémon ${id} desde API`)
       pokemon.value = null
 
@@ -526,9 +506,8 @@ export const usePokemonStore = defineStore(
     const goToEvolution = async (evolutionName) => {
       let pokemonId
 
-      // Casos especiales que necesitan mapeo explícito
       const specialEvolutions = {
-        dudunsparce: 'dudunsparce-two-segment', // Por defecto la forma de 2 segmentos
+        dudunsparce: 'dudunsparce-two-segment',
         urshifu: 892,
         'urshifu-rapid-strike': 892,
         'urshifu-single-strike': 892,
@@ -538,7 +517,6 @@ export const usePokemonStore = defineStore(
         if (typeof specialEvolutions[evolutionName] === 'number') {
           pokemonId = specialEvolutions[evolutionName]
         } else {
-          // Es un nombre de forma, buscar por nombre
           const pokemonRes = await fetch(
             `https://pokeapi.co/api/v2/pokemon/${specialEvolutions[evolutionName]}/`,
           )
@@ -617,7 +595,7 @@ export const usePokemonStore = defineStore(
     persist: {
       key: 'pokemon-store',
       storage: localStorage,
-      paths: ['prefetchEnabled', 'fallbackSpritesStatus'], // Persistir fallbackSpritesStatus
+      paths: ['prefetchEnabled', 'fallbackSpritesStatus'],
     },
   },
 )
