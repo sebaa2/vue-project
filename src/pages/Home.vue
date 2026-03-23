@@ -24,7 +24,7 @@
                     :src="mostVisitedPokemon.sprite"
                     :alt="mostVisitedPokemon.name"
                     class="w-12 h-12 object-contain"
-                    @error="(e) => (e.target.src = notFound)"
+                    @error="(e) => handleImageError(e, mostVisitedPokemon.id)"
                   />
                   <div>
                     <p class="text-xl font-bold text-gray-800 capitalize">
@@ -226,10 +226,10 @@
         >
           <div class="relative bg-gradient-to-br from-gray-50 to-gray-100 p-4">
             <img
-              :src="pokemon.image || pokemon.sprites?.front_default"
+              :src="getPokemonImage(pokemon)"
               :alt="pokemon.name"
               class="w-full h-32 object-contain group-hover:scale-110 transition-transform duration-300"
-              @error="handleImageError"
+              @error="(e) => handleImageError(e, pokemon.id)"
             />
             <span class="absolute top-2 left-2 text-xs text-gray-400 font-mono">
               #{{ String(pokemon.id).padStart(4, '0') }}
@@ -335,7 +335,7 @@ import { storeToRefs } from 'pinia'
 import { usePokemonListStore } from '../stores/pokemonListStore.js'
 import ScrollToTop from '../components/ScrollToTop.vue'
 import { formatTipos } from '../config/arrayTipo.js'
-import notFound from '../assets/images/no_found.png'
+import notFound from '../assets/images/noFound.png'
 import { useHistoryStore } from '../stores/historyStore.js'
 
 const pokemonListStore = usePokemonListStore()
@@ -388,6 +388,45 @@ const pokemonTypes = [
   'steel',
   'fairy',
 ]
+
+// Función para obtener la imagen del Pokémon
+const getPokemonImage = (pokemon) => {
+  // Priorizar la imagen del Pokémon si existe
+  if (pokemon.image) return pokemon.image
+  if (pokemon.sprites?.front_default) return pokemon.sprites.front_default
+  
+  // Intentar construir la URL oficial
+  if (pokemon.id) {
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.id}.png`
+  }
+  
+  return notFound
+}
+
+// Manejador de error mejorado para imágenes
+const handleImageError = (e, pokemonId = null) => {
+  // Evitar bucles infinitos
+  if (e.target.src === notFound) {
+    return
+  }
+  
+  console.log(`Error cargando imagen para Pokémon ID: ${pokemonId}`)
+  
+  // Intentar con sprite alternativo de PokeAPI si tenemos el ID
+  if (pokemonId) {
+    const fallbackUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemonId}.png`
+    e.target.src = fallbackUrl
+    
+    // Si también falla este, usar noFound
+    e.target.onerror = () => {
+      e.target.src = notFound
+      e.target.classList.add('image-error')
+    }
+  } else {
+    e.target.src = notFound
+    e.target.classList.add('image-error')
+  }
+}
 
 // Función para obtener generación por ID
 const getPokemonGeneration = (id) => {
@@ -608,10 +647,6 @@ const goToPage = (page) => {
   }
 }
 
-const handleImageError = (e) => {
-  e.target.src = notFound
-}
-
 // Watch para resetear página cuando cambian los filtros
 watch(
   [
@@ -638,5 +673,12 @@ onMounted(async () => {
 <style scoped>
 .container {
   max-width: 1400px;
+}
+
+.image-error {
+  opacity: 0.7;
+  object-fit: contain;
+  padding: 8px;
+  filter: grayscale(0.3);
 }
 </style>
