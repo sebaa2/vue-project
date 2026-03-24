@@ -25,9 +25,8 @@ const emit = defineEmits([
   'update:searchTerm',
   'update:selectedType',
   'update:selectedCategory',
-  'toggleSortOrder',
+  'update:sort',
   'resetFilters',
-  'setSortBy',
 ])
 
 const expandedMove = ref(null)
@@ -36,12 +35,10 @@ const toggleMoveDetails = (moveName) => {
   expandedMove.value = expandedMove.value === moveName ? null : moveName
 }
 
-// Función para manejar el cambio de ordenamiento
-const handleSetSortBy = (sortByValue) => {
-  emit('setSortBy', sortByValue)
+const handleUpdateSort = (sortData) => {
+  emit('update:sort', sortData)
 }
 
-// Función para resetear filtros
 const handleResetFilters = () => {
   emit('resetFilters')
 }
@@ -50,29 +47,25 @@ const handleResetFilters = () => {
 <template>
   <div>
     <MoveFilters
-      :tipoOptions="tipoOptions"
-      :categoriaOptions="categoriaOptions"
       :totalMoves="totalMoves"
       :filteredCount="filteredCount"
       :isSearchActive="isSearchActive"
       :searchTerm="searchTerm"
-      :selectedType="selectedType"
-      :selectedCategory="selectedCategory"
-      :sortBy="sortBy"
-      :sortOrder="sortOrder"
       :isTyping="isTyping"
       @update:search-term="(value) => emit('update:searchTerm', value)"
-      @update:selected-type="(value) => emit('update:selectedType', value)"
-      @update:selected-category="(value) => emit('update:selectedCategory', value)"
-      @toggle-sort-order="() => emit('toggleSortOrder')"
       @reset-filters="handleResetFilters"
-      @set-sort-by="handleSetSortBy"
     />
 
-    <MoveTableHeader 
-      :sortBy="sortBy" 
+    <MoveTableHeader
+      :sortBy="sortBy"
       :sortOrder="sortOrder"
-      @set-sort-by="handleSetSortBy"
+      :selectedType="selectedType"
+      :selectedCategory="selectedCategory"
+      :tipoOptions="tipoOptions"
+      :categoriaOptions="categoriaOptions"
+      @update:sort="handleUpdateSort"
+      @update:selected-type="(value) => emit('update:selectedType', value)"
+      @update:selected-category="(value) => emit('update:selectedCategory', value)"
     />
 
     <VirtualScroller

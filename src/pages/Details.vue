@@ -1,4 +1,4 @@
-<!-- Details.vue - Versión Modularizada -->
+<!-- Details.vue - Versión Completa con Sistema de Ordenamiento Mejorado -->
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { ref, onMounted, watch, nextTick, computed, onUnmounted } from 'vue'
@@ -13,7 +13,7 @@ import EvolutionChain from '../components/EvolutionChain.vue'
 import EeveeEvolutions from '../components/EeveeEvolutions.vue'
 import MoveTable from '../components/moves/MoveTable.vue'
 import { formatPoke } from '../helpers/formatPoke.js'
-import { formatTipos } from '../config/arrayTipo.js'
+import { formatTipos, getTiposOptions, getCategoriasOptions } from '../config/arrayTipo.js'
 import notFound from '../assets/images/noFound.png'
 
 // Constantes y configuraciones
@@ -57,8 +57,6 @@ const {
   formattedTypes,
   currentSprite,
   filteredForms,
-  uniqueMoveTypes,
-  uniqueCategories,
 } = storeToRefs(pokemonStore)
 
 const {
@@ -91,20 +89,54 @@ const activeForm = ref(null)
 // Computed
 const isGigantamax = computed(() => pokemon.value?.name?.includes('-gmax') || false)
 
-const tipoOptions = computed(() => [
-  { value: 'all', label: 'Todos los tipos' },
-  ...(uniqueMoveTypes.value.length ? uniqueMoveTypes.value : []),
-])
+// Función para manejar la actualización del ordenamiento desde MoveTable
+const handleUpdateSort = (sortData) => {
+  const { sortBy: newSortBy, sortOrder: newSortOrder } = sortData
 
-const categoriaOptions = computed(() => [
-  { value: 'all', label: 'Todas las categorías' },
-  ...(uniqueCategories.value.length ? uniqueCategories.value : []),
-])
+  if (newSortBy === null) {
+    // Si es null, desactivar ordenamiento
+    setSortBy(null)
+  } else {
+    // Si hay una columna, actualizar
+    setSortBy(newSortBy)
+    if (sortOrder.value !== newSortOrder) {
+      toggleSortOrder()
+    }
+  }
+}
 
+// Opciones de tipos para los filtros (usando arrayTipo.js)
+const tipoOptions = computed(() => {
+  // Obtener tipos únicos de los movimientos
+  const uniqueTypes = [...new Set(movesPokemon.value.map((move) => move.type))]
+  const allTypesOptions = getTiposOptions()
+
+  // Filtrar solo los tipos que aparecen en los movimientos
+  const availableTypes = allTypesOptions.filter((option) => uniqueTypes.includes(option.value))
+
+  return [{ value: 'all', label: 'Todos los tipos' }, ...availableTypes]
+})
+
+// Opciones de categorías para los filtros (usando arrayTipo.js)
+const categoriaOptions = computed(() => {
+  // Obtener categorías únicas de los movimientos
+  const uniqueCats = [...new Set(movesPokemon.value.map((move) => move.category))]
+  const allCategoriesOptions = getCategoriasOptions()
+
+  // Filtrar solo las categorías que aparecen en los movimientos
+  const availableCategories = allCategoriesOptions.filter((option) =>
+    uniqueCats.includes(option.value),
+  )
+
+  return [{ value: 'all', label: 'Todas las categorías' }, ...availableCategories]
+})
+
+// Computed para filtrar y ordenar los movimientos
 const filteredAndSortedMoves = computed(() => {
   let moves = [...movesPokemon.value]
   const searchValue = searchTermDebounced.value?.toLowerCase()
 
+  // 1. Aplicar búsqueda por nombre
   if (searchValue) {
     moves = moves.filter(
       (move) =>
@@ -113,25 +145,52 @@ const filteredAndSortedMoves = computed(() => {
     )
   }
 
+  // 2. Aplicar filtro por tipo
   if (selectedType.value !== 'all') {
     moves = moves.filter((move) => move.type === selectedType.value)
   }
 
+  // 3. Aplicar filtro por categoría
   if (selectedCategory.value !== 'all') {
     moves = moves.filter((move) => move.category === selectedCategory.value)
   }
 
-  return moves.sort((a, b) => {
-    let aVal = a[sortBy.value]
-    let bVal = b[sortBy.value]
+  // 4. Aplicar ordenamiento solo si hay un sortBy definido y no es null
+  if (sortBy.value && sortBy.value !== null) {
+    return moves.sort((a, b) => {
+      let aVal = a[sortBy.value]
+      let bVal = b[sortBy.value]
 
-    if (sortBy.value === 'name') {
-      aVal = aVal?.toLowerCase() || ''
-      bVal = bVal?.toLowerCase() || ''
-    }
+      // Manejar valores nulos/undefined
+      if (aVal === null || aVal === undefined) {
+        aVal = sortBy.value === 'name' ? 'zzz' : -Infinity
+      }
+      if (bVal === null || bVal === undefined) {
+        bVal = sortBy.value === 'name' ? 'zzz' : -Infinity
+      }
 
-    return sortOrder.value === 'asc' ? (aVal > bVal ? 1 : -1) : aVal < bVal ? 1 : -1
-  })
+      // Para nombres, ordenar alfabéticamente
+      if (sortBy.value === 'name') {
+        aVal = String(aVal).toLowerCase()
+        bVal = String(bVal).toLowerCase()
+        if (sortOrder.value === 'asc') {
+          return aVal.localeCompare(bVal)
+        } else {
+          return bVal.localeCompare(aVal)
+        }
+      }
+
+      // Para valores numéricos
+      if (sortOrder.value === 'asc') {
+        return aVal - bVal
+      } else {
+        return bVal - aVal
+      }
+    })
+  }
+
+  // Si no hay sortBy (null), devolver los movimientos sin ordenar (orden original)
+  return moves
 })
 
 // Métodos
@@ -157,7 +216,7 @@ const formatName = (name) => {
     .join(' ')
 }
 
-// Watch
+// Watch para cambios de ruta
 watch(route, async () => {
   await loadPokemon(route.params.id)
   resetFilters()
@@ -328,28 +387,27 @@ onUnmounted(() => {
     </div>
 
     <!-- Sección de movimientos modularizada -->
-  <div v-if="!isGigantamax" class="mt-8">
-    <MoveTable
-      :moves="filteredAndSortedMoves"
-      :total-moves="movesPokemon.length"
-      :filtered-count="filteredAndSortedMoves.length"
-      :is-search-active="isSearchActive"
-      :tipo-options="tipoOptions"
-      :categoria-options="categoriaOptions"
-      :search-term="searchTerm"
-      :selected-type="selectedType"
-      :selected-category="selectedCategory"
-      :sort-by="sortBy"
-      :sort-order="sortOrder"
-      :is-typing="isTyping"
-      @update:search-term="(value) => setSearchTerm(value)"
-      @update:selected-type="(value) => setSelectedType(value)"
-      @update:selected-category="(value) => setSelectedCategory(value)"
-      @toggle-sort-order="toggleSortOrder"
-      @reset-filters="resetFilters"
-      @set-sort-by="(value) => setSortBy(value)"
-    />
-  </div>
+    <div v-if="!isGigantamax" class="mt-8">
+      <MoveTable
+        :moves="filteredAndSortedMoves"
+        :total-moves="movesPokemon.length"
+        :filtered-count="filteredAndSortedMoves.length"
+        :is-search-active="isSearchActive"
+        :tipo-options="tipoOptions"
+        :categoria-options="categoriaOptions"
+        :search-term="searchTerm"
+        :selected-type="selectedType"
+        :selected-category="selectedCategory"
+        :sort-by="sortBy"
+        :sort-order="sortOrder"
+        :is-typing="isTyping"
+        @update:search-term="setSearchTerm"
+        @update:selected-type="setSelectedType"
+        @update:selected-category="setSelectedCategory"
+        @update:sort="handleUpdateSort"
+        @reset-filters="resetFilters"
+      />
+    </div>
 
     <div v-else class="mt-8 text-center text-gray-400 italic">
       Sin movimientos disponibles para formas Gigantamax
