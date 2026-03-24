@@ -21,6 +21,17 @@ const handleSetSortBy = (sortByValue) => {
     <div class="flex-1 text-sm">Movimiento</div>
     <div class="w-16 text-center text-sm">
       <button
+        @click="handleSetSortBy('levelLearnedAt')"
+        class="hover:text-blue-600 transition-colors inline-flex items-center gap-1"
+      >
+        Nivel
+        <span v-if="sortBy === 'levelLearnedAt'" class="text-xs">{{
+          sortOrder === 'asc' ? '↑' : '↓'
+        }}</span>
+      </button>
+    </div>
+    <div class="w-16 text-center text-sm">
+      <button
         @click="handleSetSortBy('power')"
         class="hover:text-blue-600 transition-colors inline-flex items-center gap-1"
       >
@@ -43,7 +54,9 @@ const handleSetSortBy = (sortByValue) => {
         class="hover:text-blue-600 transition-colors inline-flex items-center gap-1"
       >
         Precisión
-        <span v-if="sortBy === 'accuracy'" class="text-xs">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
+        <span v-if="sortBy === 'accuracy'" class="text-xs">{{
+          sortOrder === 'asc' ? '↑' : '↓'
+        }}</span>
       </button>
     </div>
     <div class="w-8"></div>

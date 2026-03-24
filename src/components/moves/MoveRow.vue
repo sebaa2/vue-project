@@ -50,6 +50,29 @@ const formatAccuracy = (accuracy) => {
   if (accuracy === null) return '—'
   return `${accuracy}%`
 }
+
+// Devuelve { label, classes } para mostrar cómo se aprende el movimiento
+const getLevelDisplay = (move) => {
+  const method = move.learnMethod
+  const level = move.levelLearnedAt
+
+  if (method === 'level-up') {
+    if (level === 0) {
+      return { label: 'Evo.', classes: 'bg-purple-100 text-purple-700 font-semibold' }
+    }
+    return { label: `Nv. ${level}`, classes: 'bg-blue-100 text-blue-700 font-mono' }
+  }
+  if (method === 'machine') {
+    return { label: 'MT/MO', classes: 'bg-yellow-100 text-yellow-700' }
+  }
+  if (method === 'egg') {
+    return { label: 'Huevo', classes: 'bg-orange-100 text-orange-700' }
+  }
+  if (method === 'tutor') {
+    return { label: 'Tutor', classes: 'bg-green-100 text-green-700' }
+  }
+  return { label: '—', classes: 'text-gray-400' }
+}
 </script>
 
 <template>
@@ -58,6 +81,7 @@ const formatAccuracy = (accuracy) => {
     :class="{ 'bg-gray-50': index % 2 === 0, 'bg-white': index % 2 === 1 }"
   >
     <div class="flex items-center p-3 gap-2">
+      <!-- Tipo -->
       <div class="w-24">
         <span
           :class="formatTipos(move.type).color"
@@ -67,6 +91,7 @@ const formatAccuracy = (accuracy) => {
         </span>
       </div>
 
+      <!-- Categoría -->
       <div class="w-28">
         <span
           :class="getCategoryColor(move.category)"
@@ -82,24 +107,36 @@ const formatAccuracy = (accuracy) => {
         </span>
       </div>
 
+      <!-- Nombre -->
       <div class="flex-1">
         <span class="font-medium text-gray-800">
           {{ formatName(move.name) }}
         </span>
       </div>
 
+      <!-- Nivel / método de aprendizaje -->
+      <div class="w-16 text-center">
+        <span :class="getLevelDisplay(move).classes" class="px-2 py-0.5 rounded text-xs">
+          {{ getLevelDisplay(move).label }}
+        </span>
+      </div>
+
+      <!-- Poder -->
       <div class="w-16 text-center text-gray-600 font-mono">
         {{ move.power && move.power !== '-' ? move.power : '—' }}
       </div>
 
+      <!-- PP -->
       <div class="w-16 text-center text-gray-600 font-mono">
         {{ move.pp || '—' }}
       </div>
 
+      <!-- Precisión -->
       <div class="w-16 text-center text-gray-600 font-mono">
         {{ formatAccuracy(move.accuracy) }}
       </div>
 
+      <!-- Toggle detalles -->
       <button
         @click="emit('toggle-details', move.name)"
         class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition"

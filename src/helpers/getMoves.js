@@ -7,8 +7,18 @@ export const getMoves = async (moves) => {
 
   const moveCache = useMoveCacheStore()
 
-  // Extraer URLs de movimientos
+  // Extraer URLs de movimientos y construir mapa de metadatos de aprendizaje
   const moveUrls = moves.map((move) => move.move.url)
+
+  // Mapa URL → { levelLearnedAt, learnMethod } usando el grupo de versión más reciente
+  const learnMetaMap = {}
+  moves.forEach((m) => {
+    const details = m.version_group_details[m.version_group_details.length - 1]
+    learnMetaMap[m.move.url] = {
+      levelLearnedAt: details?.level_learned_at ?? null,
+      learnMethod: details?.move_learn_method?.name ?? null,
+    }
+  })
 
   // Verificar cuáles están en caché
   const { result: cachedMoves, missingMoves } = moveCache.getMovesBatch(moveUrls)
@@ -32,12 +42,12 @@ export const getMoves = async (moves) => {
           moveData.effect_entries?.find((e) => e.language.name === 'es')?.effect ||
           moveData.effect_entries?.find((e) => e.language.name === 'en')?.effect ||
           'Sin descripción disponible',
-        accuracy: moveData.accuracy, // Puede ser null para movimientos de estado
+        accuracy: moveData.accuracy,
         priority: moveData.priority,
-        originalName: moveData.name, // Guardar nombre original para referencia
+        originalName: moveData.name,
       }
 
-      // Guardar en caché
+      // Guardar en caché (sin metadatos de aprendizaje, que son por Pokémon)
       moveCache.setMove(moveUrl, formattedMove)
 
       return { url: moveUrl, data: formattedMove }
@@ -54,6 +64,7 @@ export const getMoves = async (moves) => {
           effect: 'Error cargando información del movimiento',
           accuracy: null,
           priority: 0,
+          originalName: '',
         },
       }
     }
@@ -65,16 +76,18 @@ export const getMoves = async (moves) => {
   // Combinar todos los movimientos
   const allMoves = {}
 
-  // Agregar movimientos en caché
   Object.entries(cachedMoves).forEach(([url, data]) => {
     allMoves[url] = data
   })
 
-  // Agregar movimientos recién cargados
   loadedMoves.forEach(({ url, data }) => {
     allMoves[url] = data
   })
 
-  // Retornar en el orden original
-  return moveUrls.map((url) => allMoves[url])
+  // Retornar en el orden original, inyectando metadatos de aprendizaje (específicos por Pokémon)
+  return moveUrls.map((url) => ({
+    ...allMoves[url],
+    levelLearnedAt: learnMetaMap[url]?.levelLearnedAt ?? null,
+    learnMethod: learnMetaMap[url]?.learnMethod ?? null,
+  }))
 }
