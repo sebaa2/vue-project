@@ -51,6 +51,39 @@ export const usePokemonListStore = defineStore('pokemonList', () => {
     })
   }
 
+  // 🆕 Función para formatear nombres de megas (Mega al principio)
+  const formatMegaName = (name) => {
+    if (name.includes('mega')) {
+      // Separar el nombre por guiones
+      const parts = name.split('-')
+
+      // Encontrar el índice donde está "mega"
+      const megaIndex = parts.findIndex((part) => part === 'mega')
+
+      if (megaIndex !== -1) {
+        // Extraer el nombre base (lo que está antes de mega)
+        const baseName = parts.slice(0, megaIndex).join(' ')
+
+        // Extraer la variante (lo que está después de mega, ej: "x", "y")
+        const variant = parts.slice(megaIndex + 1).join(' ')
+
+        // Capitalizar el nombre base
+        const capitalizedBase = baseName.charAt(0).toUpperCase() + baseName.slice(1)
+
+        // Construir el nombre formateado: "Mega [Nombre] [Variante]"
+        let formatted = `Mega ${capitalizedBase}`
+        if (variant) {
+          formatted += ` ${variant.toUpperCase()}`
+        }
+
+        return formatted
+      }
+    }
+
+    // Para Pokémon normales, solo capitalizar
+    return name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ')
+  }
+
   // Función para obtener generación por ID
   const getGenerationByNumber = (id) => {
     for (const gen of generations) {
@@ -101,6 +134,7 @@ export const usePokemonListStore = defineStore('pokemonList', () => {
             return {
               id: detail.id,
               name: detail.name,
+              formattedName: formatMegaName(detail.name), // ← Esta línea debe estar
               types: detail.types.map((t) => t.type.name),
               primaryType: detail.types[0]?.type.name || 'unknown',
               secondaryType: detail.types[1]?.type.name || null,

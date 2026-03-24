@@ -12,6 +12,7 @@
   "dependencies": {
     "@primevue/themes": "^4.5.4",
     "@tailwindcss/vite": "^4.2.1",
+    "@vueuse/core": "^14.2.1",
     "apexcharts": "^5.10.3",
     "datatables.net": "^2.3.7",
     "datatables.net-dt": "^2.3.7",
