@@ -2,51 +2,77 @@
 <template>
   <div class="min-h-screen bg-gradient-to-b from-red-50 to-white">
     <div class="container mx-auto px-4 py-8">
-      <!-- Header -->
-      <div class="text-center mb-8">
-        <h1 class="text-4xl md:text-5xl font-black text-red-800 mb-2">Pokédex</h1>
-        <p class="text-gray-600 text-lg">Explora los {{ totalPokemons }} Pokémon</p>
+      <!-- 🔴 SOLO BARRA DE CARGA MIENTRAS CARGA 🔴 -->
+      <div v-if="isLoading" class="flex flex-col items-center justify-center min-h-[60vh]">
+        <div class="text-center">
+          <h1 class="text-4xl md:text-5xl font-black text-red-800 mb-8">Pokédex</h1>
+
+          <!-- Barra de progreso -->
+          <div class="w-80 md:w-96 mb-4">
+            <div class="flex items-center justify-between text-sm text-gray-600 mb-2">
+              <span>Cargando Pokédex...</span>
+              <span>{{ Math.round(loadProgress) }}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div
+                class="bg-red-600 h-2 rounded-full transition-all duration-300 ease-out"
+                :style="{ width: `${loadProgress}%` }"
+              ></div>
+            </div>
+          </div>
+
+          <p class="text-gray-500 text-sm">Cargando {{ totalPokemonsCount }} Pokémon</p>
+        </div>
       </div>
 
-      <!-- Filtros -->
-      <PokemonFilters
-        v-model:search-query="searchQuery"
-        v-model:primary-type="selectedPrimaryType"
-        v-model:secondary-type="selectedSecondaryType"
-        v-model:generation="selectedGeneration"
-        v-model:show-megas="showOnlyMegas"
-        :pokemon-types="pokemonTypes"
-        :generation-options="generationOptions"
-        :has-active-filters="hasActiveFilters"
-        :total-results="totalItems"
-        :is-filtering="isFiltering"
-        @reset="resetFilters"
-        @remove-filter="removeFilter"
-      />
+      <!-- ✅ TODO EL CONTENIDO NORMAL CUANDO TERMINA LA CARGA -->
+      <template v-else>
+        <!-- Header -->
+        <div class="text-center mb-8">
+          <h1 class="text-4xl md:text-5xl font-black text-red-800 mb-2">Pokédex</h1>
+          <p class="text-gray-600 text-lg">Explora los {{ totalPokemonsCount }} Pokémon</p>
+        </div>
 
-      <!-- Grid de Pokémon -->
-      <PokemonGrid
-        :pokemons="paginatedPokemons"
-        :is-loading="isLoading || isFiltering"
-        :items-per-page="itemsPerPage"
-      />
+        <!-- Filtros -->
+        <PokemonFilters
+          v-model:search-query="searchQuery"
+          v-model:primary-type="selectedPrimaryType"
+          v-model:secondary-type="selectedSecondaryType"
+          v-model:generation="selectedGeneration"
+          v-model:show-megas="showOnlyMegas"
+          :pokemon-types="pokemonTypes"
+          :generation-options="generationOptions"
+          :has-active-filters="hasActiveFilters"
+          :total-results="totalItems"
+          :is-filtering="isFiltering"
+          @reset="resetFilters"
+          @remove-filter="removeFilter"
+        />
 
-      <!-- Empty State -->
-      <EmptyState
-        v-if="!isLoading && !isFiltering && paginatedPokemons.length === 0"
-        @reset="resetFilters"
-      />
+        <!-- Grid de Pokémon -->
+        <PokemonGrid
+          :pokemons="paginatedPokemons"
+          :is-loading="false"
+          :items-per-page="itemsPerPage"
+        />
 
-      <!-- Paginación -->
-      <PokemonPagination
-        v-if="totalPages > 1"
-        :current-page="currentPage"
-        :total-pages="totalPages"
-        :visible-pages="visiblePages"
-        :items-per-page="itemsPerPage"
-        @page-change="goToPage"
-        @update-items-per-page="(value) => (itemsPerPage = value)"
-      />
+        <!-- Empty State -->
+        <EmptyState
+          v-if="!isFiltering && paginatedPokemons.length === 0 && allPokemonsData.length > 0"
+          @reset="resetFilters"
+        />
+
+        <!-- Paginación -->
+        <PokemonPagination
+          v-if="totalPages > 1 && paginatedPokemons.length > 0"
+          :current-page="currentPage"
+          :total-pages="totalPages"
+          :visible-pages="visiblePages"
+          :items-per-page="itemsPerPage"
+          @page-change="goToPage"
+          @update-items-per-page="handleItemsPerPageChange"
+        />
+      </template>
     </div>
     <ScrollToTop />
   </div>
@@ -69,7 +95,10 @@ import ScrollToTop from '../components/ScrollToTop.vue'
 
 // Store
 const pokemonListStore = usePokemonListStore()
-const { pokemons, isLoading, allPokemons } = storeToRefs(pokemonListStore)
+const { pokemons, isLoading, loadProgress, totalPokemons } = storeToRefs(pokemonListStore)
+
+// allPokemons es un computed en el store
+const allPokemonsData = computed(() => pokemonListStore.allPokemons)
 
 // Composables
 const { generationOptions } = usePokemonGeneration()
@@ -85,7 +114,7 @@ const {
   isFiltering,
   resetFilters,
   removeFilter,
-} = usePokemonFilters(allPokemons)
+} = usePokemonFilters(allPokemonsData)
 
 const {
   currentPage,
@@ -98,12 +127,21 @@ const {
 } = usePokemonPagination(filteredPokemons)
 
 // Computed
-const totalPokemons = computed(() => allPokemons.value?.length || 0)
+const totalPokemonsCount = computed(() => totalPokemons.value || 0)
+
+// Manejador para cambiar items por página
+const handleItemsPerPageChange = (value) => {
+  itemsPerPage.value = value
+}
 
 // Cargar datos al montar
 onMounted(async () => {
-  if (!pokemonListStore.pokemons?.length) {
+  console.log('🟣 Home: Componente montado')
+
+  if (!pokemons.value?.length && !isLoading.value) {
+    console.log('🔄 Iniciando carga de Pokémon...')
     await pokemonListStore.loadPokemonList()
+    console.log('✅ Carga completada. Total:', pokemons.value?.length)
   }
 })
 </script>

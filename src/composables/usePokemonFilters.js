@@ -1,11 +1,11 @@
 // composables/usePokemonFilters.js
-import { ref, computed, watch } from 'vue'
-import { useLocalStorage } from '@vueuse/core'
+import { ref, computed } from 'vue'
+import { useLocalStorage } from '@vueuse/core' // ✅ Importar desde @vueuse/core
 import { getTiposOptions } from '../config/arrayTipo.js'
 import { usePokemonGeneration } from './usePokemonGeneration.js'
 import { usePokemonUtils } from './usePokemonUtils.js'
 
-export function usePokemonFilters(allPokemons) {
+export function usePokemonFilters(allPokemonsComputed) {
   
   // Dependencias
   const { filterByGeneration } = usePokemonGeneration()
@@ -15,7 +15,7 @@ export function usePokemonFilters(allPokemons) {
   const tipoOptions = getTiposOptions()
   const pokemonTypes = tipoOptions.map(opt => opt.value)
   
-  // Estado con persistencia en localStorage
+  // Estado con persistencia automática (¡más simple!)
   const searchQuery = useLocalStorage('pokedex-search', '')
   const selectedPrimaryType = useLocalStorage('pokedex-primary-type', 'all')
   const selectedSecondaryType = useLocalStorage('pokedex-secondary-type', 'all')
@@ -26,7 +26,7 @@ export function usePokemonFilters(allPokemons) {
   const isFiltering = ref(false)
   const filterExecutionTime = ref(0)
   
-  // Funciones de filtrado individuales (puras y testables)
+  // Funciones de filtrado individuales
   const applySearchFilter = (list, query) => {
     if (!query) return list
     
@@ -60,14 +60,17 @@ export function usePokemonFilters(allPokemons) {
   
   // Computed principal con todos los filtros
   const filteredPokemons = computed(() => {
-    if (!allPokemons.value) return []
+    const allPokemons = allPokemonsComputed.value
+    
+    if (!allPokemons || allPokemons.length === 0) {
+      return []
+    }
     
     const startTime = performance.now()
     isFiltering.value = true
     
-    let filtered = [...allPokemons.value]
+    let filtered = [...allPokemons]
     
-    // Aplicar filtros en orden
     filtered = applySearchFilter(filtered, searchQuery.value)
     filtered = applyPrimaryTypeFilter(filtered, selectedPrimaryType.value)
     filtered = applySecondaryTypeFilter(filtered, selectedSecondaryType.value)
@@ -77,7 +80,6 @@ export function usePokemonFilters(allPokemons) {
     const endTime = performance.now()
     filterExecutionTime.value = endTime - startTime
     
-    // Pequeño delay para evitar parpadeos en UI
     setTimeout(() => {
       isFiltering.value = false
     }, 100)
@@ -85,7 +87,6 @@ export function usePokemonFilters(allPokemons) {
     return filtered
   })
   
-  // Verificar si hay filtros activos
   const hasActiveFilters = computed(() => {
     return searchQuery.value !== '' ||
            selectedPrimaryType.value !== 'all' ||
@@ -94,7 +95,6 @@ export function usePokemonFilters(allPokemons) {
            showOnlyMegas.value
   })
   
-  // Contar filtros activos
   const activeFiltersCount = computed(() => {
     let count = 0
     if (searchQuery.value) count++
@@ -105,7 +105,6 @@ export function usePokemonFilters(allPokemons) {
     return count
   })
   
-  // Resetear todos los filtros
   const resetFilters = () => {
     searchQuery.value = ''
     selectedPrimaryType.value = 'all'
@@ -114,7 +113,6 @@ export function usePokemonFilters(allPokemons) {
     showOnlyMegas.value = false
   }
   
-  // Eliminar un filtro específico
   const removeFilter = (filterName) => {
     switch (filterName) {
       case 'search':
@@ -136,22 +134,17 @@ export function usePokemonFilters(allPokemons) {
   }
   
   return {
-    // Estado
     searchQuery,
     selectedPrimaryType,
     selectedSecondaryType,
     selectedGeneration,
     showOnlyMegas,
     pokemonTypes,
-    
-    // Computados
     filteredPokemons,
     hasActiveFilters,
     activeFiltersCount,
     isFiltering,
     filterExecutionTime,
-    
-    // Métodos
     resetFilters,
     removeFilter
   }

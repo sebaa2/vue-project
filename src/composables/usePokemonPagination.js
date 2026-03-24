@@ -1,23 +1,24 @@
 // composables/usePokemonPagination.js
 import { ref, computed, watch } from 'vue'
-import { useLocalStorage } from '@vueuse/core'
+import { useLocalStorage } from '@vueuse/core' // ✅ Importar desde @vueuse/core
 
-export function usePokemonPagination(items, defaultItemsPerPage = 24) {
+export function usePokemonPagination(itemsComputed, defaultItemsPerPage = 24) {
   
-  // Estado
+  // Estado con persistencia automática
   const currentPage = ref(1)
   const itemsPerPage = useLocalStorage('pokedex-items-per-page', defaultItemsPerPage)
   
   // Computados
-  const totalItems = computed(() => items.value?.length || 0)
+  const totalItems = computed(() => itemsComputed.value?.length || 0)
   const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage.value))
   
   const startIndex = computed(() => (currentPage.value - 1) * itemsPerPage.value)
   const endIndex = computed(() => startIndex.value + itemsPerPage.value)
   
   const paginatedItems = computed(() => {
-    if (!items.value) return []
-    return items.value.slice(startIndex.value, endIndex.value)
+    const items = itemsComputed.value
+    if (!items || items.length === 0) return []
+    return items.slice(startIndex.value, endIndex.value)
   })
   
   // Páginas visibles con elipses
@@ -56,39 +57,22 @@ export function usePokemonPagination(items, defaultItemsPerPage = 24) {
   const goToPage = (page) => {
     if (page >= 1 && page <= totalPages.value) {
       currentPage.value = page
-      // Scroll suave al top
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
   
-  const nextPage = () => goToPage(currentPage.value + 1)
-  const prevPage = () => goToPage(currentPage.value - 1)
-  const firstPage = () => goToPage(1)
-  const lastPage = () => goToPage(totalPages.value)
-  
-  // Resetear página cuando cambian los items o items por página
-  watch([items, itemsPerPage], () => {
+  // Resetear página cuando cambian los items
+  watch(itemsComputed, () => {
     currentPage.value = 1
   })
   
   return {
-    // Estado
     currentPage,
     itemsPerPage,
-    
-    // Computados
     totalItems,
     totalPages,
     paginatedItems,
     visiblePages,
-    startIndex,
-    endIndex,
-    
-    // Métodos
-    goToPage,
-    nextPage,
-    prevPage,
-    firstPage,
-    lastPage
+    goToPage
   }
 }

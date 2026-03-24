@@ -1,6 +1,6 @@
 <!-- src/components/PokemonFilters.vue -->
 <template>
-  <div class="bg-white rounded-xl shadow-md p-4 mb-8">
+  <div class="bg-white rounded-xl shadow-md p-4 mb-8" :class="{ 'opacity-60': disabled }">
     <div class="flex flex-col gap-4">
       <!-- Búsqueda -->
       <div class="flex flex-col md:flex-row gap-4">
@@ -10,10 +10,11 @@
             @input="$emit('update:searchQuery', $event.target.value)"
             type="text"
             placeholder="🔍 Buscar Pokémon por nombre o número..."
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            :disabled="disabled"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
           <button
-            v-if="searchQuery"
+            v-if="searchQuery && !disabled"
             @click="$emit('update:searchQuery', '')"
             class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
           >
@@ -26,11 +27,14 @@
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <!-- Tipo Principal -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"> Tipo Principal </label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Tipo Principal
+          </label>
           <select
             :value="primaryType"
             @change="$emit('update:primaryType', $event.target.value)"
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+            :disabled="disabled"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
             <option value="all">Todos los tipos</option>
             <option v-for="type in pokemonTypes" :key="type" :value="type">
@@ -41,11 +45,14 @@
 
         <!-- Tipo Secundario -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"> Tipo Secundario </label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Tipo Secundario
+          </label>
           <select
             :value="secondaryType"
             @change="$emit('update:secondaryType', $event.target.value)"
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+            :disabled="disabled"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
             <option value="all">Todos los tipos</option>
             <option value="none">Sin segundo tipo</option>
@@ -57,11 +64,14 @@
 
         <!-- Generación -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"> Generación </label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Generación
+          </label>
           <select
             :value="generation"
             @change="$emit('update:generation', $event.target.value)"
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+            :disabled="disabled"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
             <option value="all">Todas las generaciones</option>
             <option v-for="gen in generationOptions" :key="gen.id" :value="gen.id">
@@ -71,23 +81,20 @@
         </div>
 
         <!-- Megas Toggle -->
-        <div
-          class="bg-gray-50 rounded-xl p-4 flex items-center justify-between border border-gray-200"
-        >
-          <span class="text-sm font-semibold text-gray-800"> Solo Mega Evoluciones </span>
-          <label class="relative inline-flex items-center cursor-pointer">
+        <div class="bg-gray-50 rounded-xl p-4 flex items-center justify-between border border-gray-200">
+          <span class="text-sm font-semibold text-gray-800">
+            Solo Mega Evoluciones
+          </span>
+          <label class="relative inline-flex items-center cursor-pointer" :class="{ 'cursor-not-allowed': disabled }">
             <input
               type="checkbox"
               :checked="showMegas"
               @change="$emit('update:showMegas', $event.target.checked)"
+              :disabled="disabled"
               class="sr-only peer"
             />
-            <div
-              class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-purple-600 transition-colors duration-300"
-            ></div>
-            <div
-              class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-300 peer-checked:translate-x-5"
-            ></div>
+            <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-purple-600 transition-colors duration-300"></div>
+            <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-300 peer-checked:translate-x-5"></div>
           </label>
         </div>
       </div>
@@ -96,20 +103,22 @@
       <div class="flex justify-between items-center">
         <button
           @click="$emit('reset')"
-          class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+          :disabled="disabled"
+          class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          🗑️ Limpiar filtros
+          🗑️ Limpiar todos los filtros
         </button>
-
+        
         <div class="text-sm text-gray-500">
           <span v-if="isFiltering">Filtrando...</span>
+          <span v-else-if="disabled">Cargando datos...</span>
           <span v-else>{{ totalResults }} Pokémon encontrados</span>
         </div>
       </div>
 
-      <!-- Filtros activos -->
+      <!-- Filtros activos (ocultos durante carga) -->
       <ActiveFilters
-        v-if="hasActiveFilters"
+        v-if="!disabled && hasActiveFilters"
         :search-query="searchQuery"
         :primary-type="primaryType"
         :secondary-type="secondaryType"
@@ -138,6 +147,10 @@ defineProps({
   hasActiveFilters: Boolean,
   totalResults: Number,
   isFiltering: Boolean,
+  disabled: {
+    type: Boolean,
+    default: false
+  }
 })
 
 defineEmits([
@@ -147,6 +160,6 @@ defineEmits([
   'update:generation',
   'update:showMegas',
   'reset',
-  'removeFilter',
+  'removeFilter'
 ])
 </script>
