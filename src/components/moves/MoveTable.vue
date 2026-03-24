@@ -13,9 +13,11 @@ const props = defineProps({
   isSearchActive: Boolean,
   tipoOptions: Array,
   categoriaOptions: Array,
+  methodOptions: Array, // Nuevo
   searchTerm: String,
   selectedType: String,
   selectedCategory: String,
+  selectedMethod: String, // Nuevo
   sortBy: String,
   sortOrder: String,
   isTyping: Boolean,
@@ -25,6 +27,7 @@ const emit = defineEmits([
   'update:searchTerm',
   'update:selectedType',
   'update:selectedCategory',
+  'update:selectedMethod', // Nuevo
   'update:sort',
   'resetFilters',
 ])
@@ -61,11 +64,14 @@ const handleResetFilters = () => {
       :sortOrder="sortOrder"
       :selectedType="selectedType"
       :selectedCategory="selectedCategory"
+      :selectedMethod="selectedMethod"
       :tipoOptions="tipoOptions"
       :categoriaOptions="categoriaOptions"
+      :methodOptions="methodOptions"
       @update:sort="handleUpdateSort"
       @update:selected-type="(value) => emit('update:selectedType', value)"
       @update:selected-category="(value) => emit('update:selectedCategory', value)"
+      @update:selected-method="(value) => emit('update:selectedMethod', value)"
     />
 
     <VirtualScroller

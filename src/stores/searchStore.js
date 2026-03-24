@@ -19,6 +19,7 @@ export const useSearchStore = defineStore(
     const searchTermDebounced = ref('') // Término real para filtrar
     const selectedType = ref('all')
     const selectedCategory = ref('all')
+    const selectedMethod = ref('all') // Nuevo: filtro por método de aprendizaje
     const sortBy = ref('name')
     const sortOrder = ref('asc')
     const currentPage = ref(1)
@@ -30,7 +31,8 @@ export const useSearchStore = defineStore(
       return (
         searchTermDebounced.value !== '' ||
         selectedType.value !== 'all' ||
-        selectedCategory.value !== 'all'
+        selectedCategory.value !== 'all' ||
+        selectedMethod.value !== 'all' // Incluir método en la verificación
       )
     })
 
@@ -43,6 +45,7 @@ export const useSearchStore = defineStore(
       searchTermDebounced.value = ''
       selectedType.value = 'all'
       selectedCategory.value = 'all'
+      selectedMethod.value = 'all' // Resetear método
       sortBy.value = 'name'
       sortOrder.value = 'asc'
       currentPage.value = 1
@@ -88,6 +91,12 @@ export const useSearchStore = defineStore(
       currentPage.value = 1
     }
 
+    // Nuevo: setter para método de aprendizaje
+    const setSelectedMethod = (method) => {
+      selectedMethod.value = method
+      currentPage.value = 1
+    }
+
     const setSortBy = (sort) => {
       sortBy.value = sort
     }
@@ -111,6 +120,7 @@ export const useSearchStore = defineStore(
       searchTermDebounced, // Para filtrar (actualización con debounce)
       selectedType,
       selectedCategory,
+      selectedMethod, // Nuevo
       sortBy,
       sortOrder,
       currentPage,
@@ -125,6 +135,7 @@ export const useSearchStore = defineStore(
       setSearchTerm,
       setSelectedType,
       setSelectedCategory,
+      setSelectedMethod, // Nuevo
       setSortBy,
       toggleSortOrder,
       setCurrentPage,
@@ -139,6 +150,7 @@ export const useSearchStore = defineStore(
         'searchTermDebounced', // Persistir el término debounced
         'selectedType',
         'selectedCategory',
+        'selectedMethod', // Nuevo: persistir filtro de método
         'sortBy',
         'sortOrder',
         'itemsPerPage',

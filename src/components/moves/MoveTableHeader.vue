@@ -8,15 +8,23 @@ const props = defineProps({
   sortOrder: String,
   selectedType: String,
   selectedCategory: String,
+  selectedMethod: String, // Nuevo: método de aprendizaje seleccionado
   tipoOptions: Array,
   categoriaOptions: Array,
+  methodOptions: Array, // Nuevo: opciones de métodos de aprendizaje
 })
 
-const emit = defineEmits(['update:sort', 'update:selectedType', 'update:selectedCategory'])
+const emit = defineEmits([
+  'update:sort', 
+  'update:selectedType', 
+  'update:selectedCategory',
+  'update:selectedMethod' // Nuevo evento
+])
 
 // Estados para los menús desplegables
 const showTypeMenu = ref(false)
 const showCategoryMenu = ref(false)
+const showMethodMenu = ref(false) // Nuevo estado para menú de métodos
 
 // Manejar ordenamiento con ciclo: ascendente -> descendente -> desactivado
 const handleSetSortBy = (sortByValue) => {
@@ -55,6 +63,16 @@ const handleSelectCategory = (categoryValue) => {
   showCategoryMenu.value = false
 }
 
+// Nuevo: Manejar selección de método de aprendizaje
+const handleSelectMethod = (methodValue) => {
+  if (props.selectedMethod === methodValue) {
+    emit('update:selectedMethod', 'all')
+  } else {
+    emit('update:selectedMethod', methodValue)
+  }
+  showMethodMenu.value = false
+}
+
 // Función para obtener el color del tipo
 const getTypeColor = (typeValue) => {
   if (typeValue === 'all') return ''
@@ -62,18 +80,34 @@ const getTypeColor = (typeValue) => {
   return formatted.color
 }
 
+// Función para obtener el color del método (para el badge)
+const getMethodColor = (methodValue) => {
+  const colors = {
+    level: 'bg-green-500',
+    machine: 'bg-blue-500',
+    egg: 'bg-purple-500',
+    tutor: 'bg-orange-500'
+  }
+  return colors[methodValue] || 'bg-gray-500'
+}
+
 // Cerrar menús al hacer clic fuera
 const handleClickOutside = (event) => {
   const typeButton = document.getElementById('type-button')
   const categoryButton = document.getElementById('category-button')
+  const methodButton = document.getElementById('method-button')
   const typeMenu = document.getElementById('type-menu')
   const categoryMenu = document.getElementById('category-menu')
+  const methodMenu = document.getElementById('method-menu')
   
   if (typeButton && !typeButton.contains(event.target) && typeMenu && !typeMenu.contains(event.target)) {
     showTypeMenu.value = false
   }
   if (categoryButton && !categoryButton.contains(event.target) && categoryMenu && !categoryMenu.contains(event.target)) {
     showCategoryMenu.value = false
+  }
+  if (methodButton && !methodButton.contains(event.target) && methodMenu && !methodMenu.contains(event.target)) {
+    showMethodMenu.value = false
   }
 }
 
@@ -176,21 +210,43 @@ if (typeof window !== 'undefined') {
       </button>
     </div>
 
-    <!-- Nivel - Click para ordenar (con ciclo) -->
-    <div class="w-16 text-center text-sm">
+    <!-- Método de Aprendizaje - Menú desplegable -->
+    <div class="w-28 text-sm relative">
       <button
-        @click="handleSetSortBy('levelLearnedAt')"
-        class="hover:text-blue-600 transition-colors inline-flex items-center gap-1 w-full justify-center"
-        :class="{ 'text-blue-600 font-bold': sortBy === 'levelLearnedAt' }"
+        id="method-button"
+        @click.stop="showMethodMenu = !showMethodMenu"
+        class="hover:text-blue-600 transition-colors inline-flex items-center gap-1 w-full text-left justify-center"
+        :class="{ 'text-blue-600 font-bold': selectedMethod !== 'all' }"
       >
-        Nivel
-        <span v-if="sortBy === 'levelLearnedAt'" class="text-xs ml-1">
-          {{ sortOrder === 'asc' ? '↓' : '↑' }}
+        Método
+        <span v-if="selectedMethod !== 'all'" class="text-xs px-1 rounded ml-1 text-white" :class="getMethodColor(selectedMethod)">
+          {{ methodOptions.find(opt => opt.value === selectedMethod)?.label || selectedMethod }}
         </span>
+        <svg class="w-4 h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
       </button>
+      
+      <!-- Menú desplegable de métodos -->
+      <div
+        v-if="showMethodMenu"
+        id="method-menu"
+        class="absolute top-full left-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20"
+      >
+        <button
+          v-for="option in methodOptions"
+          :key="option.value"
+          @click="handleSelectMethod(option.value)"
+          class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors flex items-center gap-2"
+          :class="{ 'bg-blue-50 text-blue-600 font-semibold': selectedMethod === option.value }"
+        >
+          <span class="w-3 h-3 rounded-full" :class="option.value !== 'all' ? getMethodColor(option.value) : 'bg-gray-300'"></span>
+          {{ option.label }}
+        </button>
+      </div>
     </div>
 
-    <!-- Poder - Click para ordenar (con ciclo) -->
+    <!-- Poder - Click para ordenar -->
     <div class="w-16 text-center text-sm">
       <button
         @click="handleSetSortBy('power')"
@@ -204,7 +260,7 @@ if (typeof window !== 'undefined') {
       </button>
     </div>
 
-    <!-- PP - Click para ordenar (con ciclo) -->
+    <!-- PP - Click para ordenar -->
     <div class="w-16 text-center text-sm">
       <button
         @click="handleSetSortBy('pp')"
@@ -218,7 +274,7 @@ if (typeof window !== 'undefined') {
       </button>
     </div>
 
-    <!-- Precisión - Click para ordenar (con ciclo) -->
+    <!-- Precisión - Click para ordenar -->
     <div class="w-16 text-center text-sm">
       <button
         @click="handleSetSortBy('accuracy')"

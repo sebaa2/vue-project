@@ -1,4 +1,4 @@
-<!-- Details.vue - Versión Completa con Sistema de Ordenamiento Mejorado -->
+<!-- Details.vue - Actualizado con filtro por método de aprendizaje -->
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { ref, onMounted, watch, nextTick, computed, onUnmounted } from 'vue'
@@ -39,6 +39,14 @@ const EEVEE_FAMILY = new Set([
   'sylveon-gmax',
 ])
 
+// Métodos de aprendizaje disponibles
+const LEARNING_METHODS = {
+  'level-up': 'Nivel',
+  'machine': 'MT/MO',
+  'egg': 'Huevo',
+  'tutor': 'Tutor'
+}
+
 // Stores
 const route = useRoute()
 const router = useRouter()
@@ -64,6 +72,7 @@ const {
   searchTermDebounced,
   selectedType,
   selectedCategory,
+  selectedMethod, // Nuevo
   sortBy,
   sortOrder,
   isSearchActive,
@@ -76,6 +85,7 @@ const {
   setSearchTerm,
   setSelectedType,
   setSelectedCategory,
+  setSelectedMethod, // Nuevo
   setSortBy,
   toggleSortOrder,
   resetFilters,
@@ -131,6 +141,22 @@ const categoriaOptions = computed(() => {
   return [{ value: 'all', label: 'Todas las categorías' }, ...availableCategories]
 })
 
+// Nuevo: Opciones de métodos de aprendizaje
+const methodOptions = computed(() => {
+  // Obtener métodos únicos de los movimientos
+  const uniqueMethods = [...new Set(movesPokemon.value.map((move) => move.learnMethod))]
+  
+  // Crear opciones para el desplegable
+  const options = uniqueMethods
+    .filter(method => LEARNING_METHODS[method]) // Solo métodos válidos
+    .map(method => ({
+      value: method,
+      label: LEARNING_METHODS[method]
+    }))
+  
+  return [{ value: 'all', label: 'Todos los métodos' }, ...options]
+})
+
 // Computed para filtrar y ordenar los movimientos
 const filteredAndSortedMoves = computed(() => {
   let moves = [...movesPokemon.value]
@@ -155,7 +181,12 @@ const filteredAndSortedMoves = computed(() => {
     moves = moves.filter((move) => move.category === selectedCategory.value)
   }
 
-  // 4. Aplicar ordenamiento solo si hay un sortBy definido y no es null
+  // 4. Nuevo: Aplicar filtro por método de aprendizaje
+  if (selectedMethod.value !== 'all') {
+    moves = moves.filter((move) => move.learnMethod === selectedMethod.value)
+  }
+
+  // 5. Aplicar ordenamiento solo si hay un sortBy definido y no es null
   if (sortBy.value && sortBy.value !== null) {
     return moves.sort((a, b) => {
       let aVal = a[sortBy.value]
@@ -395,15 +426,18 @@ onUnmounted(() => {
         :is-search-active="isSearchActive"
         :tipo-options="tipoOptions"
         :categoria-options="categoriaOptions"
+        :method-options="methodOptions"
         :search-term="searchTerm"
         :selected-type="selectedType"
         :selected-category="selectedCategory"
+        :selected-method="selectedMethod"
         :sort-by="sortBy"
         :sort-order="sortOrder"
         :is-typing="isTyping"
         @update:search-term="setSearchTerm"
         @update:selected-type="setSelectedType"
         @update:selected-category="setSelectedCategory"
+        @update:selected-method="setSelectedMethod"
         @update:sort="handleUpdateSort"
         @reset-filters="resetFilters"
       />
