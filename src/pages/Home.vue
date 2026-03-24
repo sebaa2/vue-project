@@ -2,7 +2,7 @@
 <template>
   <div class="min-h-screen bg-gradient-to-b from-red-50 to-white">
     <div class="container mx-auto px-4 py-8">
-      <!-- 🔴 SOLO BARRA DE CARGA MIENTRAS CARGA 🔴 -->
+      <!-- 🔴 BARRA DE CARGA MIENTRAS CARGA 🔴 -->
       <div v-if="isLoading" class="flex flex-col items-center justify-center min-h-[60vh]">
         <div class="text-center">
           <h1 class="text-4xl md:text-5xl font-black text-red-800 mb-8">Pokédex</h1>
@@ -27,10 +27,13 @@
 
       <!-- ✅ TODO EL CONTENIDO NORMAL CUANDO TERMINA LA CARGA -->
       <template v-else>
-        <!-- Header -->
+        <!-- Header con el Pokémon más visitado -->
         <div class="text-center mb-8">
           <h1 class="text-4xl md:text-5xl font-black text-red-800 mb-2">Pokédex</h1>
           <p class="text-gray-600 text-lg">Explora los {{ totalPokemonsCount }} Pokémon</p>
+
+          <!-- Mostrar el Pokémon más buscado -->
+          <MostVisitedPokemon :mostVisitedPokemon="mostVisitedPokemon" />
         </div>
 
         <!-- Filtros -->
@@ -85,6 +88,7 @@ import { usePokemonListStore } from '../stores/pokemonListStore.js'
 import { usePokemonFilters } from '../composables/usePokemonFilters.js'
 import { usePokemonPagination } from '../composables/usePokemonPagination.js'
 import { usePokemonGeneration } from '../composables/usePokemonGeneration.js'
+import { useHistoryStore } from '../stores/historyStore.js'
 
 // Componentes
 import PokemonFilters from '../components/PokemonFilters.vue'
@@ -92,10 +96,14 @@ import PokemonGrid from '../components/PokemonGrid.vue'
 import PokemonPagination from '../components/PokemonPagination.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ScrollToTop from '../components/ScrollToTop.vue'
+import MostVisitedPokemon from '../components/MostVisitedPokemon.vue'
 
-// Store
+// Stores
 const pokemonListStore = usePokemonListStore()
 const { pokemons, isLoading, loadProgress, totalPokemons } = storeToRefs(pokemonListStore)
+
+const historyStore = useHistoryStore()
+const { mostVisitedPokemon } = storeToRefs(historyStore)
 
 // allPokemons es un computed en el store
 const allPokemonsData = computed(() => pokemonListStore.allPokemons)
