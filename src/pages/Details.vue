@@ -1,4 +1,4 @@
-<!-- Details.vue - Versión Optimizada -->
+<!-- Details.vue - Versión Modularizada -->
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { ref, onMounted, watch, nextTick, computed, onUnmounted } from 'vue'
@@ -11,27 +11,12 @@ import BarChar from '../components/BarChar.vue'
 import RadarChar from '../components/RadarChar.vue'
 import EvolutionChain from '../components/EvolutionChain.vue'
 import EeveeEvolutions from '../components/EeveeEvolutions.vue'
+import MoveTable from '../components/moves/MoveTable.vue'
 import { formatPoke } from '../helpers/formatPoke.js'
 import { formatTipos } from '../config/arrayTipo.js'
 import notFound from '../assets/images/noFound.png'
-import VirtualScroller from 'primevue/virtualscroller'
-import physicalIcon from '../assets/categories/physical.png'
-import specialIcon from '../assets/categories/special.png'
-import statusIcon from '../assets/categories/status.png'
 
 // Constantes y configuraciones
-const CATEGORY_ICON = {
-  physical: physicalIcon,
-  special: specialIcon,
-  status: statusIcon,
-}
-
-const CATEGORY_LABEL = {
-  physical: 'Físico',
-  special: 'Especial',
-  status: 'Estado',
-}
-
 const EEVEE_FAMILY = new Set([
   'eevee',
   'vaporeon',
@@ -102,7 +87,6 @@ const {
 const isBarChart = ref(true)
 const isShiny = ref(false)
 const activeForm = ref(null)
-const expandedMove = ref(null)
 
 // Computed
 const isGigantamax = computed(() => pokemon.value?.name?.includes('-gmax') || false)
@@ -153,9 +137,6 @@ const filteredAndSortedMoves = computed(() => {
 // Métodos
 const changeChart = () => (isBarChart.value = !isBarChart.value)
 const toggleShiny = () => (isShiny.value = !isShiny.value)
-const toggleMoveDetails = (moveName) => {
-  expandedMove.value = expandedMove.value === moveName ? null : moveName
-}
 const goToHome = () => router.push('/')
 const handleHiddenButtonClick = () => easterEggStore.triggerSilla()
 
@@ -346,227 +327,34 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Sección de movimientos -->
-    <!-- Sección de movimientos -->
+    <!-- Sección de movimientos modularizada -->
     <div v-if="!isGigantamax" class="mt-8">
-      <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
-        <h2 class="text-2xl font-bold">Movimientos</h2>
-        <div v-if="isSearchActive" class="text-sm text-gray-500">
-          {{ filteredAndSortedMoves.length }} / {{ movesPokemon.length }} movimientos
-          <button @click="resetFilters" class="ml-2 text-red-500 hover:text-red-700">
-            ✕ Limpiar
-          </button>
-        </div>
-      </div>
-
-      <!-- Filtros -->
-      <div class="mb-4 flex flex-wrap gap-2">
-        <div class="relative">
-          <input
-            :value="searchTerm"
-            @input="(e) => setSearchTerm(e.target.value)"
-            type="text"
-            placeholder="🔍 Buscar movimiento..."
-            class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-8"
-          />
-          <div v-if="isTyping" class="absolute right-2 top-1/2 transform -translate-y-1/2">
-            <div
-              class="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"
-            />
-          </div>
-        </div>
-
-        <select
-          :value="selectedType"
-          @change="(e) => setSelectedType(e.target.value)"
-          class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-        >
-          <option v-for="option in tipoOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-
-        <select
-          :value="selectedCategory"
-          @change="(e) => setSelectedCategory(e.target.value)"
-          class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-        >
-          <option v-for="option in categoriaOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-
-        <!-- Botón para ordenar (opcional) -->
-        <button
-          @click="toggleSortOrder"
-          class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:bg-gray-50"
-        >
-          Ordenar
-          {{ sortBy === 'name' ? 'por nombre' : sortBy === 'power' ? 'por poder' : 'por PP' }}
-          {{ sortOrder === 'asc' ? '↑' : '↓' }}
-        </button>
-      </div>
-
-      <!-- ENCABEZADOS DE TABLA -->
-      <div
-        class="flex items-center p-3 gap-2 bg-gradient-to-r from-gray-100 to-gray-50 rounded-t-lg font-semibold text-gray-700 border-b-2 border-gray-200 sticky top-0 z-10 shadow-sm"
-      >
-        <div class="w-24 text-sm">Tipo</div>
-        <div class="w-28 text-sm">Categoría</div>
-        <div class="flex-1 text-sm">Movimiento</div>
-        <div class="w-16 text-center text-sm">
-          <button
-            @click="setSortBy('power')"
-            class="hover:text-blue-600 transition-colors inline-flex items-center gap-1"
-          >
-            Poder
-            <span v-if="sortBy === 'power'" class="text-xs">{{
-              sortOrder === 'asc' ? '↑' : '↓'
-            }}</span>
-          </button>
-        </div>
-        <div class="w-16 text-center text-sm">
-          <button
-            @click="setSortBy('pp')"
-            class="hover:text-blue-600 transition-colors inline-flex items-center gap-1"
-          >
-            PP
-            <span v-if="sortBy === 'pp'" class="text-xs">{{
-              sortOrder === 'asc' ? '↑' : '↓'
-            }}</span>
-          </button>
-        </div>
-        <div class="w-8"></div>
-      </div>
-
-      <!-- Lista virtual de movimientos -->
-      <VirtualScroller
-        :items="filteredAndSortedMoves"
-        :itemSize="70"
-        :buffer="3"
-        class="border border-gray-200 border-t-0 rounded-b-lg overflow-hidden"
-        style="height: 500px"
-      >
-        <template #item="{ item, index }">
-          <div
-            v-memo="[item.name, expandedMove === item.name]"
-            class="hover:bg-gray-50 transition-colors"
-            :class="{ 'bg-gray-50': index % 2 === 0, 'bg-white': index % 2 === 1 }"
-          >
-            <div class="flex items-center p-3 gap-2">
-              <div class="w-24">
-                <span
-                  :class="formatTipos(item.type).color"
-                  class="px-2 py-1 rounded-full text-white text-sm block text-center"
-                >
-                  {{ formatTipos(item.type).tipo }}
-                </span>
-              </div>
-
-              <div class="w-28">
-                <span
-                  :class="{
-                    'bg-red-500': item.category === 'physical',
-                    'bg-blue-500': item.category === 'special',
-                    'bg-green-500': item.category === 'status',
-                  }"
-                  class="px-2 py-1 rounded-full text-white inline-flex items-center gap-1 text-sm"
-                >
-                  <img
-                    v-if="CATEGORY_ICON[item.category]"
-                    :src="CATEGORY_ICON[item.category]"
-                    :alt="item.category"
-                    class="h-5 w-5"
-                  />
-                  {{ CATEGORY_LABEL[item.category] ?? item.category }}
-                </span>
-              </div>
-
-              <div class="flex-1">
-                <span class="font-medium text-gray-800">
-                  {{ formatName(item.name) }}
-                </span>
-              </div>
-
-              <div class="w-16 text-center text-gray-600 font-mono">
-                {{ item.power && item.power !== '-' ? item.power : '—' }}
-              </div>
-
-              <div class="w-16 text-center text-gray-600 font-mono">
-                {{ item.pp || '—' }}
-              </div>
-
-              <button
-                @click="toggleMoveDetails(item.name)"
-                class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition"
-                :aria-label="expandedMove === item.name ? 'Ocultar detalles' : 'Mostrar detalles'"
-              >
-                <span class="text-gray-500">
-                  {{ expandedMove === item.name ? '▲' : '▼' }}
-                </span>
-              </button>
-            </div>
-
-            <!-- Detalles expandidos -->
-            <div v-if="expandedMove === item.name" class="px-3 pb-3">
-              <div
-                class="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 border-l-4 border-blue-400"
-              >
-                <!-- Mostrar descripción en español -->
-                <p v-if="item.effect && item.effect !== 'Sin descripción disponible'">
-                  <span class="font-semibold">🎯 Efecto: </span>{{ item.effect }}
-                </p>
-                <p
-                  v-else-if="item.effect === 'Sin descripción disponible'"
-                  class="italic text-gray-400"
-                >
-                  📝 No hay descripción disponible en español para este movimiento.
-                </p>
-                <p v-else class="italic text-gray-400">🔄 Cargando descripción...</p>
-
-                <!-- Información adicional -->
-                <div
-                  v-if="item.accuracy || item.priority"
-                  class="mt-2 flex gap-4 text-xs text-gray-500"
-                >
-                  <span v-if="item.accuracy && item.accuracy !== '-'">
-                    🎯 Precisión: {{ item.accuracy }}%
-                  </span>
-                  <span v-if="item.priority && item.priority !== 0">
-                    ⚡ Prioridad: {{ item.priority > 0 ? `+${item.priority}` : item.priority }}
-                  </span>
-                </div>
-
-                <!-- Mostrar nombre original si está disponible -->
-                <div
-                  v-if="item.originalName && item.originalName !== item.name"
-                  class="mt-2 text-xs text-gray-400"
-                >
-                  Nombre original: {{ item.originalName }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <template #empty>
-          <div class="flex items-center justify-center h-32 text-gray-500">
-            No se encontraron movimientos.
-            <button
-              v-if="isSearchActive"
-              @click="resetFilters"
-              class="ml-2 text-blue-500 hover:text-blue-700"
-            >
-              Limpiar filtros
-            </button>
-          </div>
-        </template>
-      </VirtualScroller>
+      <MoveTable
+        :moves="filteredAndSortedMoves"
+        :total-moves="movesPokemon.length"
+        :filtered-count="filteredAndSortedMoves.length"
+        :is-search-active="isSearchActive"
+        :tipo-options="tipoOptions"
+        :categoria-options="categoriaOptions"
+        :search-term="searchTerm"
+        :selected-type="selectedType"
+        :selected-category="selectedCategory"
+        :sort-by="sortBy"
+        :sort-order="sortOrder"
+        :is-typing="isTyping"
+        @update:search-term="setSearchTerm"
+        @update:selected-type="setSelectedType"
+        @update:selected-category="setSelectedCategory"
+        @toggle-sort-order="toggleSortOrder"
+        @reset-filters="resetFilters"
+        @set-sort-by="setSortBy"
+      />
     </div>
 
     <div v-else class="mt-8 text-center text-gray-400 italic">
       Sin movimientos disponibles para formas Gigantamax
     </div>
+
     <ScrollToTop />
   </div>
 
