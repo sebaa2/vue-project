@@ -16,16 +16,19 @@ defineProps({
       </p>
       <p v-else class="italic text-gray-400">🔄 Cargando descripción...</p>
 
-      <div v-if="move.accuracy || move.priority" class="mt-2 flex gap-4 text-xs text-gray-500">
+      <!-- <div v-if="move.accuracy || move.priority" class="mt-2 flex gap-4 text-xs text-gray-500">
         <span v-if="move.accuracy && move.accuracy !== '-'">
           🎯 Precisión: {{ move.accuracy }}%
         </span>
         <span v-if="move.priority && move.priority !== 0">
           ⚡ Prioridad: {{ move.priority > 0 ? `+${move.priority}` : move.priority }}
         </span>
-      </div>
+      </div> -->
 
-      <div v-if="move.originalName && move.originalName !== move.name" class="mt-2 text-xs text-gray-400">
+      <div
+        v-if="move.originalName && move.originalName !== move.name"
+        class="mt-2 text-xs text-gray-400"
+      >
         Nombre original: {{ move.originalName }}
       </div>
     </div>

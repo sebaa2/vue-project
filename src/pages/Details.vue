@@ -328,28 +328,28 @@ onUnmounted(() => {
     </div>
 
     <!-- Sección de movimientos modularizada -->
-    <div v-if="!isGigantamax" class="mt-8">
-      <MoveTable
-        :moves="filteredAndSortedMoves"
-        :total-moves="movesPokemon.length"
-        :filtered-count="filteredAndSortedMoves.length"
-        :is-search-active="isSearchActive"
-        :tipo-options="tipoOptions"
-        :categoria-options="categoriaOptions"
-        :search-term="searchTerm"
-        :selected-type="selectedType"
-        :selected-category="selectedCategory"
-        :sort-by="sortBy"
-        :sort-order="sortOrder"
-        :is-typing="isTyping"
-        @update:search-term="setSearchTerm"
-        @update:selected-type="setSelectedType"
-        @update:selected-category="setSelectedCategory"
-        @toggle-sort-order="toggleSortOrder"
-        @reset-filters="resetFilters"
-        @set-sort-by="setSortBy"
-      />
-    </div>
+  <div v-if="!isGigantamax" class="mt-8">
+    <MoveTable
+      :moves="filteredAndSortedMoves"
+      :total-moves="movesPokemon.length"
+      :filtered-count="filteredAndSortedMoves.length"
+      :is-search-active="isSearchActive"
+      :tipo-options="tipoOptions"
+      :categoria-options="categoriaOptions"
+      :search-term="searchTerm"
+      :selected-type="selectedType"
+      :selected-category="selectedCategory"
+      :sort-by="sortBy"
+      :sort-order="sortOrder"
+      :is-typing="isTyping"
+      @update:search-term="(value) => setSearchTerm(value)"
+      @update:selected-type="(value) => setSelectedType(value)"
+      @update:selected-category="(value) => setSelectedCategory(value)"
+      @toggle-sort-order="toggleSortOrder"
+      @reset-filters="resetFilters"
+      @set-sort-by="(value) => setSortBy(value)"
+    />
+  </div>
 
     <div v-else class="mt-8 text-center text-gray-400 italic">
       Sin movimientos disponibles para formas Gigantamax

@@ -1,9 +1,9 @@
-<!-- components/moves/MoveRow.vue -->
 <script setup>
 import { formatTipos } from '../../config/arrayTipo.js'
 import physicalIcon from '../../assets/categories/physical.png'
 import specialIcon from '../../assets/categories/special.png'
 import statusIcon from '../../assets/categories/status.png'
+import MoveDetails from './MoveDetails.vue'
 
 const props = defineProps({
   move: Object,
@@ -43,6 +43,12 @@ const getCategoryColor = (category) => {
     status: 'bg-green-500',
   }
   return colors[category] || 'bg-gray-500'
+}
+
+const formatAccuracy = (accuracy) => {
+  if (!accuracy && accuracy !== 0) return '—'
+  if (accuracy === null) return '—'
+  return `${accuracy}%`
 }
 </script>
 
@@ -90,6 +96,10 @@ const getCategoryColor = (category) => {
         {{ move.pp || '—' }}
       </div>
 
+      <div class="w-16 text-center text-gray-600 font-mono">
+        {{ formatAccuracy(move.accuracy) }}
+      </div>
+
       <button
         @click="emit('toggle-details', move.name)"
         class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition"
@@ -101,16 +111,6 @@ const getCategoryColor = (category) => {
       </button>
     </div>
 
-    <MoveDetails
-      v-if="expandedMove === move.name"
-      :move="move"
-    />
+    <MoveDetails v-if="expandedMove === move.name" :move="move" />
   </div>
 </template>
-
-<script>
-import MoveDetails from './MoveDetails.vue'
-export default {
-  components: { MoveDetails }
-}
-</script>

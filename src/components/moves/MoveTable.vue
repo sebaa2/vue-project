@@ -13,12 +13,37 @@ const props = defineProps({
   isSearchActive: Boolean,
   tipoOptions: Array,
   categoriaOptions: Array,
+  searchTerm: String,
+  selectedType: String,
+  selectedCategory: String,
+  sortBy: String,
+  sortOrder: String,
+  isTyping: Boolean,
 })
+
+const emit = defineEmits([
+  'update:searchTerm',
+  'update:selectedType',
+  'update:selectedCategory',
+  'toggleSortOrder',
+  'resetFilters',
+  'setSortBy',
+])
 
 const expandedMove = ref(null)
 
 const toggleMoveDetails = (moveName) => {
   expandedMove.value = expandedMove.value === moveName ? null : moveName
+}
+
+// Función para manejar el cambio de ordenamiento
+const handleSetSortBy = (sortByValue) => {
+  emit('setSortBy', sortByValue)
+}
+
+// Función para resetear filtros
+const handleResetFilters = () => {
+  emit('resetFilters')
 }
 </script>
 
@@ -30,9 +55,25 @@ const toggleMoveDetails = (moveName) => {
       :totalMoves="totalMoves"
       :filteredCount="filteredCount"
       :isSearchActive="isSearchActive"
+      :searchTerm="searchTerm"
+      :selectedType="selectedType"
+      :selectedCategory="selectedCategory"
+      :sortBy="sortBy"
+      :sortOrder="sortOrder"
+      :isTyping="isTyping"
+      @update:search-term="(value) => emit('update:searchTerm', value)"
+      @update:selected-type="(value) => emit('update:selectedType', value)"
+      @update:selected-category="(value) => emit('update:selectedCategory', value)"
+      @toggle-sort-order="() => emit('toggleSortOrder')"
+      @reset-filters="handleResetFilters"
+      @set-sort-by="handleSetSortBy"
     />
 
-    <MoveTableHeader />
+    <MoveTableHeader 
+      :sortBy="sortBy" 
+      :sortOrder="sortOrder"
+      @set-sort-by="handleSetSortBy"
+    />
 
     <VirtualScroller
       :items="moves"
@@ -55,7 +96,7 @@ const toggleMoveDetails = (moveName) => {
           No se encontraron movimientos.
           <button
             v-if="isSearchActive"
-            @click="$emit('reset-filters')"
+            @click="handleResetFilters"
             class="ml-2 text-blue-500 hover:text-blue-700"
           >
             Limpiar filtros

@@ -1,33 +1,61 @@
 <!-- components/moves/MoveFilters.vue -->
 <script setup>
-import { storeToRefs } from 'pinia'
-import { useSearchStore } from '../../stores/searchStore.js'
-
-const searchStore = useSearchStore()
-const {
-  searchTerm,
-  selectedType,
-  selectedCategory,
-  sortBy,
-  sortOrder,
-  isTyping,
-} = storeToRefs(searchStore)
-
-const {
-  setSearchTerm,
-  setSelectedType,
-  setSelectedCategory,
-  toggleSortOrder,
-  resetFilters,
-} = searchStore
-
-defineProps({
+const props = defineProps({
   tipoOptions: Array,
   categoriaOptions: Array,
   totalMoves: Number,
   filteredCount: Number,
   isSearchActive: Boolean,
+  searchTerm: String,
+  selectedType: String,
+  selectedCategory: String,
+  sortBy: String,
+  sortOrder: String,
+  isTyping: Boolean,
 })
+
+const emit = defineEmits([
+  'update:searchTerm',
+  'update:selectedType',
+  'update:selectedCategory',
+  'toggleSortOrder',
+  'resetFilters',
+  'setSortBy',
+])
+
+// Manejadores locales
+const handleSearchInput = (event) => {
+  emit('update:searchTerm', event.target.value)
+}
+
+const handleTypeChange = (event) => {
+  emit('update:selectedType', event.target.value)
+}
+
+const handleCategoryChange = (event) => {
+  emit('update:selectedCategory', event.target.value)
+}
+
+const handleSortByChange = (event) => {
+  emit('setSortBy', event.target.value)
+}
+
+const handleToggleSortOrder = () => {
+  emit('toggleSortOrder')
+}
+
+const handleResetFilters = () => {
+  emit('resetFilters')
+}
+
+// Helper para mostrar el label del ordenamiento
+const getSortLabel = () => {
+  if (props.sortBy === 'name') return 'por nombre'
+  if (props.sortBy === 'power') return 'por poder'
+  if (props.sortBy === 'pp') return 'por PP'
+  if (props.sortBy === 'accuracy') return 'por precisión'
+  return 'por nombre'
+}
 </script>
 
 <template>
@@ -35,7 +63,7 @@ defineProps({
     <h2 class="text-2xl font-bold">Movimientos</h2>
     <div v-if="isSearchActive" class="text-sm text-gray-500">
       {{ filteredCount }} / {{ totalMoves }} movimientos
-      <button @click="resetFilters" class="ml-2 text-red-500 hover:text-red-700">
+      <button @click="handleResetFilters" class="ml-2 text-red-500 hover:text-red-700">
         ✕ Limpiar
       </button>
     </div>
@@ -45,7 +73,7 @@ defineProps({
     <div class="relative">
       <input
         :value="searchTerm"
-        @input="(e) => setSearchTerm(e.target.value)"
+        @input="handleSearchInput"
         type="text"
         placeholder="🔍 Buscar movimiento..."
         class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-8"
@@ -57,7 +85,7 @@ defineProps({
 
     <select
       :value="selectedType"
-      @change="(e) => setSelectedType(e.target.value)"
+      @change="handleTypeChange"
       class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
     >
       <option v-for="option in tipoOptions" :key="option.value" :value="option.value">
@@ -67,7 +95,7 @@ defineProps({
 
     <select
       :value="selectedCategory"
-      @change="(e) => setSelectedCategory(e.target.value)"
+      @change="handleCategoryChange"
       class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
     >
       <option v-for="option in categoriaOptions" :key="option.value" :value="option.value">
@@ -75,13 +103,22 @@ defineProps({
       </option>
     </select>
 
+    <select
+      :value="sortBy"
+      @change="handleSortByChange"
+      class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+    >
+      <option value="name">Ordenar por nombre</option>
+      <option value="power">Ordenar por poder</option>
+      <option value="pp">Ordenar por PP</option>
+      <option value="accuracy">Ordenar por precisión</option>
+    </select>
+
     <button
-      @click="toggleSortOrder"
+      @click="handleToggleSortOrder"
       class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:bg-gray-50"
     >
-      Ordenar
-      {{ sortBy === 'name' ? 'por nombre' : sortBy === 'power' ? 'por poder' : 'por PP' }}
-      {{ sortOrder === 'asc' ? '↑' : '↓' }}
+      {{ sortOrder === 'asc' ? '↑ Ascendente' : '↓ Descendente' }}
     </button>
   </div>
 </template>

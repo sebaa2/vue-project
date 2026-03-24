@@ -6,6 +6,10 @@ defineProps({
 })
 
 const emit = defineEmits(['setSortBy'])
+
+const handleSetSortBy = (sortByValue) => {
+  emit('setSortBy', sortByValue)
+}
 </script>
 
 <template>
@@ -17,7 +21,7 @@ const emit = defineEmits(['setSortBy'])
     <div class="flex-1 text-sm">Movimiento</div>
     <div class="w-16 text-center text-sm">
       <button
-        @click="emit('setSortBy', 'power')"
+        @click="handleSetSortBy('power')"
         class="hover:text-blue-600 transition-colors inline-flex items-center gap-1"
       >
         Poder
@@ -26,11 +30,20 @@ const emit = defineEmits(['setSortBy'])
     </div>
     <div class="w-16 text-center text-sm">
       <button
-        @click="emit('setSortBy', 'pp')"
+        @click="handleSetSortBy('pp')"
         class="hover:text-blue-600 transition-colors inline-flex items-center gap-1"
       >
         PP
         <span v-if="sortBy === 'pp'" class="text-xs">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
+      </button>
+    </div>
+    <div class="w-16 text-center text-sm">
+      <button
+        @click="handleSetSortBy('accuracy')"
+        class="hover:text-blue-600 transition-colors inline-flex items-center gap-1"
+      >
+        Precisión
+        <span v-if="sortBy === 'accuracy'" class="text-xs">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
       </button>
     </div>
     <div class="w-8"></div>
