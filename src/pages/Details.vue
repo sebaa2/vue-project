@@ -347,6 +347,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Sección de movimientos -->
+    <!-- Sección de movimientos -->
     <div v-if="!isGigantamax" class="mt-8">
       <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
         <h2 class="text-2xl font-bold">Movimientos</h2>
@@ -394,6 +395,48 @@ onUnmounted(() => {
             {{ option.label }}
           </option>
         </select>
+
+        <!-- Botón para ordenar (opcional) -->
+        <button
+          @click="toggleSortOrder"
+          class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:bg-gray-50"
+        >
+          Ordenar
+          {{ sortBy === 'name' ? 'por nombre' : sortBy === 'power' ? 'por poder' : 'por PP' }}
+          {{ sortOrder === 'asc' ? '↑' : '↓' }}
+        </button>
+      </div>
+
+      <!-- ENCABEZADOS DE TABLA -->
+      <div
+        class="flex items-center p-3 gap-2 bg-gradient-to-r from-gray-100 to-gray-50 rounded-t-lg font-semibold text-gray-700 border-b-2 border-gray-200 sticky top-0 z-10 shadow-sm"
+      >
+        <div class="w-24 text-sm">Tipo</div>
+        <div class="w-28 text-sm">Categoría</div>
+        <div class="flex-1 text-sm">Movimiento</div>
+        <div class="w-16 text-center text-sm">
+          <button
+            @click="setSortBy('power')"
+            class="hover:text-blue-600 transition-colors inline-flex items-center gap-1"
+          >
+            Poder
+            <span v-if="sortBy === 'power'" class="text-xs">{{
+              sortOrder === 'asc' ? '↑' : '↓'
+            }}</span>
+          </button>
+        </div>
+        <div class="w-16 text-center text-sm">
+          <button
+            @click="setSortBy('pp')"
+            class="hover:text-blue-600 transition-colors inline-flex items-center gap-1"
+          >
+            PP
+            <span v-if="sortBy === 'pp'" class="text-xs">{{
+              sortOrder === 'asc' ? '↑' : '↓'
+            }}</span>
+          </button>
+        </div>
+        <div class="w-8"></div>
       </div>
 
       <!-- Lista virtual de movimientos -->
@@ -401,7 +444,7 @@ onUnmounted(() => {
         :items="filteredAndSortedMoves"
         :itemSize="70"
         :buffer="3"
-        class="border border-gray-200 rounded-lg overflow-hidden"
+        class="border border-gray-200 border-t-0 rounded-b-lg overflow-hidden"
         style="height: 500px"
       >
         <template #item="{ item, index }">
@@ -445,11 +488,11 @@ onUnmounted(() => {
                 </span>
               </div>
 
-              <div class="w-16 text-center text-gray-600">
+              <div class="w-16 text-center text-gray-600 font-mono">
                 {{ item.power && item.power !== '-' ? item.power : '—' }}
               </div>
 
-              <div class="w-16 text-center text-gray-600">
+              <div class="w-16 text-center text-gray-600 font-mono">
                 {{ item.pp || '—' }}
               </div>
 
@@ -469,20 +512,37 @@ onUnmounted(() => {
               <div
                 class="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 border-l-4 border-blue-400"
               >
-                <p v-if="item.effect">
+                <!-- Mostrar descripción en español -->
+                <p v-if="item.effect && item.effect !== 'Sin descripción disponible'">
                   <span class="font-semibold">🎯 Efecto: </span>{{ item.effect }}
                 </p>
-                <p v-else class="italic text-gray-400">
-                  Sin descripción disponible para este movimiento.
+                <p
+                  v-else-if="item.effect === 'Sin descripción disponible'"
+                  class="italic text-gray-400"
+                >
+                  📝 No hay descripción disponible en español para este movimiento.
                 </p>
+                <p v-else class="italic text-gray-400">🔄 Cargando descripción...</p>
+
+                <!-- Información adicional -->
                 <div
                   v-if="item.accuracy || item.priority"
                   class="mt-2 flex gap-4 text-xs text-gray-500"
                 >
-                  <span v-if="item.accuracy">🎯 Precisión: {{ item.accuracy }}%</span>
+                  <span v-if="item.accuracy && item.accuracy !== '-'">
+                    🎯 Precisión: {{ item.accuracy }}%
+                  </span>
                   <span v-if="item.priority && item.priority !== 0">
                     ⚡ Prioridad: {{ item.priority > 0 ? `+${item.priority}` : item.priority }}
                   </span>
+                </div>
+
+                <!-- Mostrar nombre original si está disponible -->
+                <div
+                  v-if="item.originalName && item.originalName !== item.name"
+                  class="mt-2 text-xs text-gray-400"
+                >
+                  Nombre original: {{ item.originalName }}
                 </div>
               </div>
             </div>
