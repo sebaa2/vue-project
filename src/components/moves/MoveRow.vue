@@ -1,4 +1,5 @@
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
 import { formatTipos } from '../../config/arrayTipo.js'
 import physicalIcon from '../../assets/categories/physical.png'
 import specialIcon from '../../assets/categories/special.png'
@@ -12,6 +13,21 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['toggle-details'])
+
+const isMobile = ref(false)
+
+const checkScreenSize = () => {
+  isMobile.value = window.innerWidth < 768
+}
+
+onMounted(() => {
+  checkScreenSize()
+  window.addEventListener('resize', checkScreenSize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkScreenSize)
+})
 
 const CATEGORY_ICON = {
   physical: physicalIcon,
@@ -51,7 +67,6 @@ const formatAccuracy = (accuracy) => {
   return `${accuracy}%`
 }
 
-// Devuelve { label, classes } para mostrar cómo se aprende el movimiento
 const getLevelDisplay = (move) => {
   const method = move.learnMethod
   const level = move.levelLearnedAt
@@ -80,8 +95,8 @@ const getLevelDisplay = (move) => {
     class="hover:bg-gray-50 transition-colors"
     :class="{ 'bg-gray-50': index % 2 === 0, 'bg-white': index % 2 === 1 }"
   >
-    <div class="flex items-center p-3 gap-2">
-      <!-- Tipo -->
+    <!-- Versión Desktop -->
+    <div v-if="!isMobile" class="flex items-center p-3 gap-2">
       <div class="w-24">
         <span
           :class="formatTipos(move.type).color"
@@ -91,7 +106,6 @@ const getLevelDisplay = (move) => {
         </span>
       </div>
 
-      <!-- Categoría -->
       <div class="w-28">
         <span
           :class="getCategoryColor(move.category)"
@@ -107,36 +121,30 @@ const getLevelDisplay = (move) => {
         </span>
       </div>
 
-      <!-- Nombre -->
       <div class="flex-1">
         <span class="font-medium text-gray-800">
           {{ formatName(move.name) }}
         </span>
       </div>
 
-      <!-- Nivel / método de aprendizaje -->
       <div class="w-16 text-center">
         <span :class="getLevelDisplay(move).classes" class="px-2 py-0.5 rounded text-xs">
           {{ getLevelDisplay(move).label }}
         </span>
       </div>
 
-      <!-- Poder -->
       <div class="w-16 text-center text-gray-600 font-mono">
         {{ move.power && move.power !== '-' ? move.power : '—' }}
       </div>
 
-      <!-- PP -->
       <div class="w-16 text-center text-gray-600 font-mono">
         {{ move.pp || '—' }}
       </div>
 
-      <!-- Precisión -->
       <div class="w-16 text-center text-gray-600 font-mono">
         {{ formatAccuracy(move.accuracy) }}
       </div>
 
-      <!-- Toggle detalles -->
       <button
         @click="emit('toggle-details', move.name)"
         class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition"
@@ -146,6 +154,66 @@ const getLevelDisplay = (move) => {
           {{ expandedMove === move.name ? '▲' : '▼' }}
         </span>
       </button>
+    </div>
+
+    <!-- Versión Mobile: Card -->
+    <div v-else class="p-4 border-b border-gray-200">
+      <div class="flex justify-between items-start mb-3">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-2">
+            <span
+              :class="formatTipos(move.type).color"
+              class="px-2 py-1 rounded-full text-white text-xs"
+            >
+              {{ formatTipos(move.type).tipo }}
+            </span>
+            <span
+              :class="getCategoryColor(move.category)"
+              class="px-2 py-1 rounded-full text-white text-xs inline-flex items-center gap-1"
+            >
+              <img
+                v-if="CATEGORY_ICON[move.category]"
+                :src="CATEGORY_ICON[move.category]"
+                :alt="move.category"
+                class="h-4 w-4"
+              />
+              {{ CATEGORY_LABEL[move.category] ?? move.category }}
+            </span>
+            <span :class="getLevelDisplay(move).classes" class="px-2 py-1 rounded text-xs">
+              {{ getLevelDisplay(move).label }}
+            </span>
+          </div>
+          <h3 class="font-bold text-gray-800 text-lg">
+            {{ formatName(move.name) }}
+          </h3>
+        </div>
+        <button
+          @click="emit('toggle-details', move.name)"
+          class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition"
+          :aria-label="expandedMove === move.name ? 'Ocultar detalles' : 'Mostrar detalles'"
+        >
+          <span class="text-gray-500 text-xl">
+            {{ expandedMove === move.name ? '▲' : '▼' }}
+          </span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3 text-sm">
+        <div>
+          <span class="text-gray-500 block text-xs">Poder</span>
+          <span class="font-mono font-semibold">{{
+            move.power && move.power !== '-' ? move.power : '—'
+          }}</span>
+        </div>
+        <div>
+          <span class="text-gray-500 block text-xs">PP</span>
+          <span class="font-mono font-semibold">{{ move.pp || '—' }}</span>
+        </div>
+        <div>
+          <span class="text-gray-500 block text-xs">Precisión</span>
+          <span class="font-mono font-semibold">{{ formatAccuracy(move.accuracy) }}</span>
+        </div>
+      </div>
     </div>
 
     <MoveDetails v-if="expandedMove === move.name" :move="move" />

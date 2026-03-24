@@ -29,6 +29,7 @@ const NAME_TRANSFORMATIONS = {
   // GEN 5
   'darmanitan-standard': 'darmanitan',
   'darmanitan-galar-zen': 'darmanitan-galarzen',
+  'meloetta-aria' : 'meloetta',
 
   // GEN 6
   'pyroar-male': 'pyroar',

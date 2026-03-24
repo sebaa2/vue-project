@@ -1,4 +1,4 @@
-<!-- Details.vue - Actualizado con filtro por método de aprendizaje -->
+<!-- Details.vue -->
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { ref, onMounted, watch, nextTick, computed, onUnmounted } from 'vue'
@@ -6,6 +6,7 @@ import { storeToRefs } from 'pinia'
 import { usePokemonStore } from '../stores/pokemonStore.js'
 import { useSearchStore } from '../stores/searchStore.js'
 import { useEasterEggStore } from '../stores/EastereggStore.js'
+import { useMiku } from '../composables/useMiku.js'
 import ScrollToTop from '../components/ScrollToTop.vue'
 import BarChar from '../components/BarChar.vue'
 import RadarChar from '../components/RadarChar.vue'
@@ -39,12 +40,15 @@ const EEVEE_FAMILY = new Set([
   'sylveon-gmax',
 ])
 
+// IDs de Pokémon donde el Easter Egg de Miku debe estar activo
+const MIKU_POKEMON_IDS = [83, 648] // Farfetch'd (83) y Meloetta (648)
+
 // Métodos de aprendizaje disponibles
 const LEARNING_METHODS = {
   'level-up': 'Nivel',
-  'machine': 'MT/MO',
-  'egg': 'Huevo',
-  'tutor': 'Tutor'
+  machine: 'MT/MO',
+  egg: 'Huevo',
+  tutor: 'Tutor',
 }
 
 // Stores
@@ -72,7 +76,7 @@ const {
   searchTermDebounced,
   selectedType,
   selectedCategory,
-  selectedMethod, // Nuevo
+  selectedMethod,
   sortBy,
   sortOrder,
   isSearchActive,
@@ -85,7 +89,7 @@ const {
   setSearchTerm,
   setSelectedType,
   setSelectedCategory,
-  setSelectedMethod, // Nuevo
+  setSelectedMethod,
   setSortBy,
   toggleSortOrder,
   resetFilters,
@@ -96,18 +100,24 @@ const isBarChart = ref(true)
 const isShiny = ref(false)
 const activeForm = ref(null)
 
+// Estado para el Easter Egg de Miku
+let mikuComposable = null
+
 // Computed
 const isGigantamax = computed(() => pokemon.value?.name?.includes('-gmax') || false)
+
+// Computed para verificar si el Easter Egg de Miku debe estar activo
+const isMikuEasterEggActive = computed(() => {
+  return pokemon.value && MIKU_POKEMON_IDS.includes(pokemon.value.id)
+})
 
 // Función para manejar la actualización del ordenamiento desde MoveTable
 const handleUpdateSort = (sortData) => {
   const { sortBy: newSortBy, sortOrder: newSortOrder } = sortData
 
   if (newSortBy === null) {
-    // Si es null, desactivar ordenamiento
     setSortBy(null)
   } else {
-    // Si hay una columna, actualizar
     setSortBy(newSortBy)
     if (sortOrder.value !== newSortOrder) {
       toggleSortOrder()
@@ -117,43 +127,31 @@ const handleUpdateSort = (sortData) => {
 
 // Opciones de tipos para los filtros (usando arrayTipo.js)
 const tipoOptions = computed(() => {
-  // Obtener tipos únicos de los movimientos
   const uniqueTypes = [...new Set(movesPokemon.value.map((move) => move.type))]
   const allTypesOptions = getTiposOptions()
-
-  // Filtrar solo los tipos que aparecen en los movimientos
   const availableTypes = allTypesOptions.filter((option) => uniqueTypes.includes(option.value))
-
   return [{ value: 'all', label: 'Todos los tipos' }, ...availableTypes]
 })
 
 // Opciones de categorías para los filtros (usando arrayTipo.js)
 const categoriaOptions = computed(() => {
-  // Obtener categorías únicas de los movimientos
   const uniqueCats = [...new Set(movesPokemon.value.map((move) => move.category))]
   const allCategoriesOptions = getCategoriasOptions()
-
-  // Filtrar solo las categorías que aparecen en los movimientos
   const availableCategories = allCategoriesOptions.filter((option) =>
     uniqueCats.includes(option.value),
   )
-
   return [{ value: 'all', label: 'Todas las categorías' }, ...availableCategories]
 })
 
-// Nuevo: Opciones de métodos de aprendizaje
+// Opciones de métodos de aprendizaje
 const methodOptions = computed(() => {
-  // Obtener métodos únicos de los movimientos
   const uniqueMethods = [...new Set(movesPokemon.value.map((move) => move.learnMethod))]
-  
-  // Crear opciones para el desplegable
   const options = uniqueMethods
-    .filter(method => LEARNING_METHODS[method]) // Solo métodos válidos
-    .map(method => ({
+    .filter((method) => LEARNING_METHODS[method])
+    .map((method) => ({
       value: method,
-      label: LEARNING_METHODS[method]
+      label: LEARNING_METHODS[method],
     }))
-  
   return [{ value: 'all', label: 'Todos los métodos' }, ...options]
 })
 
@@ -162,7 +160,6 @@ const filteredAndSortedMoves = computed(() => {
   let moves = [...movesPokemon.value]
   const searchValue = searchTermDebounced.value?.toLowerCase()
 
-  // 1. Aplicar búsqueda por nombre
   if (searchValue) {
     moves = moves.filter(
       (move) =>
@@ -171,28 +168,23 @@ const filteredAndSortedMoves = computed(() => {
     )
   }
 
-  // 2. Aplicar filtro por tipo
   if (selectedType.value !== 'all') {
     moves = moves.filter((move) => move.type === selectedType.value)
   }
 
-  // 3. Aplicar filtro por categoría
   if (selectedCategory.value !== 'all') {
     moves = moves.filter((move) => move.category === selectedCategory.value)
   }
 
-  // 4. Nuevo: Aplicar filtro por método de aprendizaje
   if (selectedMethod.value !== 'all') {
     moves = moves.filter((move) => move.learnMethod === selectedMethod.value)
   }
 
-  // 5. Aplicar ordenamiento solo si hay un sortBy definido y no es null
   if (sortBy.value && sortBy.value !== null) {
     return moves.sort((a, b) => {
       let aVal = a[sortBy.value]
       let bVal = b[sortBy.value]
 
-      // Manejar valores nulos/undefined
       if (aVal === null || aVal === undefined) {
         aVal = sortBy.value === 'name' ? 'zzz' : -Infinity
       }
@@ -200,7 +192,6 @@ const filteredAndSortedMoves = computed(() => {
         bVal = sortBy.value === 'name' ? 'zzz' : -Infinity
       }
 
-      // Para nombres, ordenar alfabéticamente
       if (sortBy.value === 'name') {
         aVal = String(aVal).toLowerCase()
         bVal = String(bVal).toLowerCase()
@@ -211,7 +202,6 @@ const filteredAndSortedMoves = computed(() => {
         }
       }
 
-      // Para valores numéricos
       if (sortOrder.value === 'asc') {
         return aVal - bVal
       } else {
@@ -220,9 +210,19 @@ const filteredAndSortedMoves = computed(() => {
     })
   }
 
-  // Si no hay sortBy (null), devolver los movimientos sin ordenar (orden original)
   return moves
 })
+
+// Función para activar/desactivar el Easter Egg de Miku
+const setupMikuEasterEgg = () => {
+  if (isMikuEasterEggActive.value && !mikuComposable) {
+    mikuComposable = useMiku()
+    console.log('🎵 Easter Egg de Miku activado')
+  } else if (!isMikuEasterEggActive.value && mikuComposable) {
+    mikuComposable = null
+    console.log('🎵 Easter Egg de Miku desactivado')
+  }
+}
 
 // Métodos
 const changeChart = () => (isBarChart.value = !isBarChart.value)
@@ -252,17 +252,29 @@ watch(route, async () => {
   await loadPokemon(route.params.id)
   resetFilters()
   await nextTick()
+  setupMikuEasterEgg()
 })
+
+// Watch para cambios en el Pokémon actual
+watch(
+  () => pokemon.value?.id,
+  () => {
+    setupMikuEasterEgg()
+  },
+  { immediate: true },
+)
 
 // Lifecycle
 onMounted(async () => {
   await loadPokemon(route.params.id)
   await nextTick()
+  setupMikuEasterEgg()
 })
 
 onUnmounted(() => {
   const timeout = searchStore._debounceTimeout
   if (timeout) clearTimeout(timeout)
+  mikuComposable = null
 })
 </script>
 

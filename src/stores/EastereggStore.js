@@ -27,6 +27,10 @@ export const useEasterEggStore = defineStore(
     const sillaFirstTriggeredAt = ref(null)
     const sillaLastTriggeredAt = ref(null)
 
+    const mikuTimesTriggered = ref(0)
+    const mikuFirstTriggeredAt = ref(null)
+    const mikuLastTriggeredAt = ref(null)
+
     // ==================== GETTERS ====================
     const hasTriggeredBefore = computed(() => timesTriggered.value > 0)
 
@@ -50,6 +54,13 @@ export const useEasterEggStore = defineStore(
       if (sillaTimesTriggered.value === 1) return '¡Otra vez con la silla!'
       if (sillaTimesTriggered.value < 5) return `¡${sillaTimesTriggered.value} sillazos!`
       return `¡Dale con la silla! × ${sillaTimesTriggered.value} `
+    })
+
+    const mikuTriggerMessage = computed(() => {
+      if (mikuTimesTriggered.value === 0) return '¡Miku apareció! 🎵'
+      if (mikuTimesTriggered.value === 1) return '¡Miku otra vez! 🎤'
+      if (mikuTimesTriggered.value < 5) return `¡${mikuTimesTriggered.value} veces con Miku! 🎶`
+      return `¡Miku Miku! × ${mikuTimesTriggered.value} 🎧`
     })
 
     // ==================== ACTIONS ====================
@@ -163,6 +174,46 @@ export const useEasterEggStore = defineStore(
       })
     }
 
+    const triggerMiku = () => {
+      const now = new Date().toLocaleString('es-CL')
+
+      mikuTimesTriggered.value++
+      mikuLastTriggeredAt.value = now
+      if (mikuTimesTriggered.value === 1) {
+        mikuFirstTriggeredAt.value = now
+      }
+
+      // Opcional: agregar sonido si tienes uno
+      // const audio = new Audio(soundMiku)
+      // audio.volume = 0.5
+      // audio.play()
+
+      Swal.fire({
+        title: '🎵 ¡MIKU APARECIÓ! 🎵',
+        html: `
+      <p class="text-pink-300 text-sm mb-1">"Miku Miku ni shite ageru♪"</p>
+      <p class="text-purple-400 text-xs font-bold mb-4">${mikuTriggerMessage.value}</p>
+      <div class="flex justify-center mb-4">
+        <div class="text-8xl animate-bounce">🎤</div>
+      </div>
+      <p class="text-gray-400 text-xs mt-4">
+        Invocada ${mikuTimesTriggered.value} ${mikuTimesTriggered.value === 1 ? 'vez' : 'veces'}
+      </p>
+    `,
+        background: '#1a1a2e',
+        color: '#ffffff',
+        confirmButtonText: '¡Miku Miku!',
+        confirmButtonColor: '#ec489a',
+        width: 400,
+        padding: '2rem',
+        backdrop: 'rgba(0, 0, 30, 0.85)',
+        didDestroy: () => {
+          // audio.pause()
+          // audio.currentTime = 0
+        },
+      })
+    }
+
     const reset = () => {
       timesTriggered.value = 0
       firstTriggeredAt.value = null
@@ -179,6 +230,12 @@ export const useEasterEggStore = defineStore(
       sillaTimesTriggered.value = 0
       sillaFirstTriggeredAt.value = null
       sillaLastTriggeredAt.value = null
+    }
+
+    const resetMiku = () => {
+      mikuTimesTriggered.value = 0
+      mikuFirstTriggeredAt.value = null
+      mikuLastTriggeredAt.value = null
     }
 
     // Asegurarse de que todas las funciones estén en el return
@@ -205,6 +262,15 @@ export const useEasterEggStore = defineStore(
       reset,
       resetWoChien,
       resetSilla,
+
+      mikuTimesTriggered,
+      mikuFirstTriggeredAt,
+      mikuLastTriggeredAt,
+      // ... existing getters
+      mikuTriggerMessage,
+      // ... existing actions
+      triggerMiku,
+      resetMiku,
     }
   },
   {
@@ -220,6 +286,10 @@ export const useEasterEggStore = defineStore(
         'sillaTimesTriggered',
         'sillaFirstTriggeredAt',
         'sillaLastTriggeredAt',
+
+        'mikuTimesTriggered',
+        'mikuFirstTriggeredAt',
+        'mikuLastTriggeredAt',
       ],
     },
   },
