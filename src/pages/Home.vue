@@ -43,8 +43,10 @@
           v-model:secondary-type="selectedSecondaryType"
           v-model:generation="selectedGeneration"
           v-model:show-megas="showOnlyMegas"
+          v-model:egg-group="selectedEggGroup"
           :pokemon-types="pokemonTypes"
           :generation-options="generationOptions"
+          :egg-group-options="EGG_GROUP_OPTIONS"
           :has-active-filters="hasActiveFilters"
           :total-results="totalItems"
           :is-filtering="isFiltering"
@@ -85,7 +87,7 @@
 import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePokemonListStore } from '../stores/pokemonListStore.js'
-import { usePokemonFilters } from '../composables/usePokemonFilters.js'
+import { usePokemonFilters, EGG_GROUP_OPTIONS } from '../composables/usePokemonFilters.js'
 import { usePokemonPagination } from '../composables/usePokemonPagination.js'
 import { usePokemonGeneration } from '../composables/usePokemonGeneration.js'
 import { useHistoryStore } from '../stores/historyStore.js'
@@ -116,6 +118,7 @@ const {
   selectedSecondaryType,
   selectedGeneration,
   showOnlyMegas,
+  selectedEggGroup,
   pokemonTypes,
   filteredPokemons,
   hasActiveFilters,
@@ -133,6 +136,7 @@ const {
   visiblePages,
   goToPage,
 } = usePokemonPagination(filteredPokemons)
+
 
 // Computed
 const totalPokemonsCount = computed(() => totalPokemons.value || 0)

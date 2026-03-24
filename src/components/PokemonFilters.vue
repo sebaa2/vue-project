@@ -24,7 +24,7 @@
       </div>
 
       <!-- Filtros - Ahora todos los elementos tienen la misma estructura -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <!-- Tipo Principal -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1"> Tipo Principal </label>
@@ -70,6 +70,22 @@
             <option value="all">Todas las generaciones</option>
             <option v-for="gen in generationOptions" :key="gen.id" :value="gen.id">
               {{ gen.name }} ({{ gen.range[0] }}-{{ gen.range[1] }})
+            </option>
+          </select>
+        </div>
+
+        <!-- Grupo Huevo 🥚 -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1"> Grupo Huevo </label>
+          <select
+            :value="eggGroup"
+            @change="$emit('update:eggGroup', $event.target.value)"
+            :disabled="disabled"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+          >
+            <option value="all">Todos los grupos</option>
+            <option v-for="opt in eggGroupOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
             </option>
           </select>
         </div>
@@ -147,8 +163,10 @@ defineProps({
   secondaryType: String,
   generation: [String, Number],
   showMegas: Boolean,
+  eggGroup: { type: String, default: 'all' },        // 🥚
   pokemonTypes: Array,
   generationOptions: Array,
+  eggGroupOptions: { type: Array, default: () => [] }, // 🥚
   hasActiveFilters: Boolean,
   totalResults: Number,
   isFiltering: Boolean,
@@ -164,6 +182,7 @@ defineEmits([
   'update:secondaryType',
   'update:generation',
   'update:showMegas',
+  'update:eggGroup',  // 🥚
   'reset',
   'removeFilter',
 ])

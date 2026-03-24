@@ -7,10 +7,10 @@ export const usePokemonListStore = defineStore('pokemonList', () => {
   const isLoading = ref(false)
   const totalPokemons = ref(0)
   const loadProgress = ref(0)
+  const eggGroupsLoaded = ref(false)
 
   const allPokemons = computed(() => pokemons.value)
 
-  // Definición de generaciones con rangos CORRECTOS
   const generations = [
     { id: 1, name: 'Generación I', range: [1, 151], description: 'Kanto (1-151)' },
     { id: 2, name: 'Generación II', range: [152, 251], description: 'Johto (152-251)' },
@@ -23,87 +23,73 @@ export const usePokemonListStore = defineStore('pokemonList', () => {
     { id: 9, name: 'Generación IX', range: [899, 1025], description: 'Paldea (899-1025)' },
   ]
 
-  // 🆕 FUNCIÓN DE FILTRO MEJORADA - Excluye TODAS las formas alternativas
+  // Mapeo de nombres de grupos huevo de la API a tus nombres
+  const EGG_GROUP_MAPPING = {
+    // Tu nombre -> Nombre en la API
+    monster: 'monster',
+    water1: 'water1',
+    water2: 'water2',
+    water3: 'water3',
+    bug: 'bug',
+    flying: 'flying',
+    field: 'ground', // La API usa 'ground' para 'field'
+    fairy: 'fairy',
+    grass: 'plant', // La API usa 'plant' para 'grass'
+    'human-like': 'humanshape', // La API usa 'humanshape' para 'human-like'
+    mineral: 'mineral',
+    amorphous: 'indeterminate', // La API usa 'indeterminate' para 'amorphous'
+    ditto: 'ditto',
+    dragon: 'dragon',
+    'no-eggs': 'no-eggs',
+  }
+
+  // Mapeo inverso: de nombre de API a tu nombre
+  const getEggGroupName = (apiGroupName) => {
+    for (const [yourName, apiName] of Object.entries(EGG_GROUP_MAPPING)) {
+      if (apiName === apiGroupName) {
+        return yourName
+      }
+    }
+    // Si no se encuentra, devolver el nombre original
+    console.warn(`🥚 Grupo huevo no mapeado: ${apiGroupName}`)
+    return apiGroupName
+  }
+
   const filterSpecialForms = (pokemonList) => {
     return pokemonList.filter((pokemon) => {
       const name = pokemon.name.toLowerCase()
-
-      // Para Koraidon: SOLO mantener la forma exacta 'koraidon'
-      if (name.startsWith('koraidon')) {
-        // Solo mantener si es EXACTAMENTE 'koraidon'
-        return name === 'koraidon'
-      }
-
-      // Para Miraidon: SOLO mantener la forma exacta 'miraidon'
-      if (name.startsWith('miraidon')) {
-        // Solo mantener si es EXACTAMENTE 'miraidon'
-        return name === 'miraidon'
-      }
-
-      // Para Zygarde: excluir formas específicas
+      if (name.startsWith('koraidon')) return name === 'koraidon'
+      if (name.startsWith('miraidon')) return name === 'miraidon'
       const problematicZygarde = ['zygarde-10-power-construct', 'zygarde-50-power-construct']
-      if (problematicZygarde.includes(name)) {
-        return false
-      }
-
-      // Para el resto de Pokémon, mantenerlos todos
+      if (problematicZygarde.includes(name)) return false
       return true
     })
   }
 
-  // 🆕 Función para formatear nombres de megas (Mega al principio)
   const formatMegaName = (name) => {
     if (name.includes('mega')) {
-      // Separar el nombre por guiones
       const parts = name.split('-')
-
-      // Encontrar el índice donde está "mega"
       const megaIndex = parts.findIndex((part) => part === 'mega')
-
       if (megaIndex !== -1) {
-        // Extraer el nombre base (lo que está antes de mega)
         const baseName = parts.slice(0, megaIndex).join(' ')
-
-        // Extraer la variante (lo que está después de mega, ej: "x", "y")
         const variant = parts.slice(megaIndex + 1).join(' ')
-
-        // Capitalizar el nombre base
         const capitalizedBase = baseName.charAt(0).toUpperCase() + baseName.slice(1)
-
-        // Construir el nombre formateado: "Mega [Nombre] [Variante]"
         let formatted = `Mega ${capitalizedBase}`
-        if (variant) {
-          formatted += ` ${variant.toUpperCase()}`
-        }
-
+        if (variant) formatted += ` ${variant.toUpperCase()}`
         return formatted
       }
     }
-
-    // Para Pokémon normales, solo capitalizar
     return name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ')
   }
 
-  // Función para obtener generación por ID
   const getGenerationByNumber = (id) => {
     for (const gen of generations) {
-      if (id >= gen.range[0] && id <= gen.range[1]) {
-        return gen.id
-      }
+      if (id >= gen.range[0] && id <= gen.range[1]) return gen.id
     }
-    // Fallback para IDs fuera de rango
-    if (id >= 1 && id <= 151) return 1
-    if (id >= 152 && id <= 251) return 2
-    if (id >= 252 && id <= 386) return 3
-    if (id >= 387 && id <= 493) return 4
-    if (id >= 494 && id <= 649) return 5
-    if (id >= 650 && id <= 721) return 6
-    if (id >= 722 && id <= 809) return 7
-    if (id >= 810 && id <= 898) return 8
-    if (id >= 899 && id <= 1025) return 9
     return null
   }
 
+  // Carga principal
   const loadPokemonList = async () => {
     if (pokemons.value.length > 0) return
 
@@ -111,13 +97,11 @@ export const usePokemonListStore = defineStore('pokemonList', () => {
     loadProgress.value = 0
 
     try {
-      // Cargar los 1025 Pokémon
       const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=2000&offset=0')
       const data = await response.json()
 
       totalPokemons.value = data.results.length
 
-      // Cargar detalles en lotes
       const batchSize = 20
       const allPokemonData = []
 
@@ -128,13 +112,12 @@ export const usePokemonListStore = defineStore('pokemonList', () => {
             const detailResponse = await fetch(pokemon.url)
             const detail = await detailResponse.json()
 
-            // Calcular generación basada en el ID
             const generation = getGenerationByNumber(detail.id)
 
             return {
               id: detail.id,
               name: detail.name,
-              formattedName: formatMegaName(detail.name), // ← Esta línea debe estar
+              formattedName: formatMegaName(detail.name),
               types: detail.types.map((t) => t.type.name),
               primaryType: detail.types[0]?.type.name || 'unknown',
               secondaryType: detail.types[1]?.type.name || null,
@@ -142,7 +125,9 @@ export const usePokemonListStore = defineStore('pokemonList', () => {
               image:
                 detail.sprites.other?.['official-artwork']?.front_default ||
                 detail.sprites.front_default,
-              generation: generation,
+              generation,
+              speciesName: detail.species?.name || detail.name,
+              eggGroups: [],
             }
           } catch (error) {
             console.error(`Error cargando Pokémon ${pokemon.name}:`, error)
@@ -151,58 +136,137 @@ export const usePokemonListStore = defineStore('pokemonList', () => {
         })
 
         const batchResults = await Promise.all(batchPromises)
-        const validResults = batchResults.filter((p) => p !== null)
-        allPokemonData.push(...validResults)
+        allPokemonData.push(...batchResults.filter((p) => p !== null))
 
         loadProgress.value = Math.round(((i + batch.length) / data.results.length) * 100)
-
-        // Pequeña pausa para no sobrecargar la API
         await new Promise((resolve) => setTimeout(resolve, 100))
       }
 
-      // Ordenar por ID
       const sortedData = allPokemonData.sort((a, b) => a.id - b.id)
+      pokemons.value = filterSpecialForms(sortedData)
 
-      // 🔍 Log para ver todas las formas ANTES del filtro
-      const allKoraidonForms = sortedData.filter((p) => p.name.includes('koraidon'))
-      const allMiraidonForms = sortedData.filter((p) => p.name.includes('miraidon'))
-      console.log(
-        '📊 TODAS las formas de Koraidon ANTES del filtro:',
-        allKoraidonForms.map((p) => ({
-          id: p.id,
-          name: p.name,
-        })),
-      )
-      console.log(
-        '📊 TODAS las formas de Miraidon ANTES del filtro:',
-        allMiraidonForms.map((p) => ({
-          id: p.id,
-          name: p.name,
-        })),
-      )
+      console.log('✅ Carga inicial completada. Total Pokémon:', pokemons.value.length)
 
-      // Aplicar filtro
-      const filteredData = filterSpecialForms(sortedData)
-
-      pokemons.value = filteredData
-
-      // 🔍 Log para ver las formas DESPUÉS del filtro
-      const koraidonAfter = pokemons.value.filter((p) => p.name.includes('koraidon'))
-      const miraidonAfter = pokemons.value.filter((p) => p.name.includes('miraidon'))
-      console.log(
-        '✅ Formas de Koraidon DESPUÉS del filtro:',
-        koraidonAfter.map((p) => p.name),
-      )
-      console.log(
-        '✅ Formas de Miraidon DESPUÉS del filtro:',
-        miraidonAfter.map((p) => p.name),
-      )
-      console.log('🗑️ Total formas excluidas:', allPokemonData.length - pokemons.value.length)
+      // Enriquecer con grupos huevo en segundo plano
+      enrichWithEggGroups()
     } catch (error) {
       console.error('Error cargando lista de Pokémon:', error)
     } finally {
       isLoading.value = false
       loadProgress.value = 100
+    }
+  }
+
+  // Enriquecimiento en segundo plano con mapeo de nombres
+  const enrichWithEggGroups = async () => {
+    try {
+      console.log('🥚 ========== INICIANDO CARGA DE GRUPOS HUEVO ==========')
+      console.log('🥚 Cargando grupos huevo en segundo plano...')
+
+      const response = await fetch('https://pokeapi.co/api/v2/egg-group?limit=100')
+      const data = await response.json()
+
+      const map = new Map()
+
+      // Cargar cada grupo específico
+      for (const group of data.results) {
+        try {
+          const groupRes = await fetch(group.url)
+          const groupData = await groupRes.json()
+
+          // Convertir el nombre del grupo al formato que usas en tu app
+          const mappedGroupName = getEggGroupName(group.name)
+          console.log(
+            `🥚 Grupo API "${group.name}" -> mapeado a "${mappedGroupName}" (ID: ${groupData.id})`,
+          )
+
+          // Guardar en el mapa con el nombre mapeado
+          groupData.pokemon_species.forEach((s) => {
+            const existing = map.get(s.name) || []
+            existing.push(mappedGroupName)
+            map.set(s.name, existing)
+          })
+        } catch (error) {
+          console.error(`🥚 Error cargando grupo ${group.name}:`, error)
+        }
+      }
+
+      // Verificar que el mapeo funciona correctamente
+      const testCases = [
+        { species: 'eevee', expectedGroups: ['field'] },
+        { species: 'grimer', expectedGroups: ['amorphous'] },
+        { species: 'mr-mime', expectedGroups: ['human-like'] },
+        { species: 'tangela', expectedGroups: ['grass'] },
+        { species: 'tauros', expectedGroups: ['field'] },
+        { species: 'gastly', expectedGroups: ['amorphous'] },
+        { species: 'machop', expectedGroups: ['human-like'] },
+        { species: 'oddish', expectedGroups: ['grass'] },
+        { species: 'ponyta', expectedGroups: ['field'] },
+        { species: 'bulbasaur', expectedGroups: ['monster', 'grass'] },
+        { species: 'pikachu', expectedGroups: ['field', 'fairy'] },
+        { species: 'charmander', expectedGroups: ['monster', 'dragon'] },
+        { species: 'squirtle', expectedGroups: ['monster', 'water1'] },
+      ]
+
+      console.log('🥚 ========== VERIFICANDO MAPEO ==========')
+      testCases.forEach(({ species, expectedGroups }) => {
+        const found = map.get(species) || []
+        const match =
+          expectedGroups.every((g) => found.includes(g)) && expectedGroups.length === found.length
+        console.log(
+          `  ${species.padEnd(15)} esperado [${expectedGroups.join(', ').padEnd(20)}] -> encontrado [${found.join(', ').padEnd(20)}] ${match ? '✅' : '❌'}`,
+        )
+      })
+
+      // Actualizar los Pokémon
+      let updatedCount = 0
+      let emptyCount = 0
+      const updatedPokemons = pokemons.value.map((pokemon) => {
+        const eggGroups = map.get(pokemon.speciesName) || []
+
+        if (eggGroups.length === 0) {
+          emptyCount++
+        } else {
+          updatedCount++
+        }
+
+        return {
+          ...pokemon,
+          eggGroups,
+        }
+      })
+
+      pokemons.value = updatedPokemons
+
+      // Verificar resultados finales
+      console.log('🥚 ========== RESULTADOS FINALES ==========')
+      console.log(`   Pokémon con grupos: ${updatedCount}`)
+      console.log(`   Pokémon sin grupos: ${emptyCount}`)
+
+      const verifyPokemon = [
+        'eevee',
+        'grimer',
+        'mr-mime',
+        'tangela',
+        'tauros',
+        'gastly',
+        'machop',
+        'oddish',
+        'ponyta',
+        'bulbasaur',
+        'pikachu',
+      ]
+      verifyPokemon.forEach((name) => {
+        const pokemon = pokemons.value.find((p) => p.name === name)
+        if (pokemon) {
+          console.log(`  ✅ ${name.padEnd(15)} -> eggGroups=[${pokemon.eggGroups.join(', ')}]`)
+        }
+      })
+
+      console.log('🥚 ========== FIN CARGA DE GRUPOS HUEVO ==========')
+      eggGroupsLoaded.value = true
+    } catch (error) {
+      console.error('🥚 Error cargando grupos huevo:', error)
     }
   }
 
@@ -218,6 +282,7 @@ export const usePokemonListStore = defineStore('pokemonList', () => {
     isLoading,
     totalPokemons,
     loadProgress,
+    eggGroupsLoaded,
     allPokemons,
     generations,
     loadPokemonList,
