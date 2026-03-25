@@ -1,4 +1,4 @@
-<!-- Details.vue -->
+<!-- Details.vue - Versión Mejorada Visualmente -->
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { ref, onMounted, watch, nextTick, computed, onUnmounted } from 'vue'
@@ -6,7 +6,6 @@ import { storeToRefs } from 'pinia'
 import { usePokemonStore } from '../stores/pokemonStore.js'
 import { useSearchStore } from '../stores/searchStore.js'
 import { useEasterEggStore } from '../stores/EastereggStore.js'
-import { useMiku } from '../composables/useMiku.js'
 import { useAbilityModal } from '../composables/useAbilityModal.js'
 import ScrollToTop from '../components/ScrollToTop.vue'
 import BarChar from '../components/BarChar.vue'
@@ -34,7 +33,6 @@ const EEVEE_FAMILY = new Set([
 ])
 
 const MIKU_POKEMON_IDS = [83, 648]
-
 const LEARNING_METHODS = {
   'level-up': 'Nivel',
   machine: 'MT/MO',
@@ -42,7 +40,6 @@ const LEARNING_METHODS = {
   tutor: 'Tutor',
 }
 
-// Mapeo de IDs para Mega Evoluciones especiales
 const MEGA_SPECIAL_IDS = {
   'raichu-mega-x': 10304,
   'raichu-mega-y': 10305,
@@ -98,8 +95,8 @@ const {
 const isBarChart = ref(true)
 const isShiny = ref(false)
 const activeForm = ref(null)
-
-let mikuComposable = null
+const mikuEnabled = ref(false)
+let cleanupMiku = null
 
 // Modal de habilidades
 const {
@@ -114,73 +111,45 @@ const {
 
 // Computed
 const isGigantamax = computed(() => pokemon.value?.name?.includes('-gmax') || false)
+const isMikuEasterEggActive = computed(
+  () => pokemon.value && MIKU_POKEMON_IDS.includes(pokemon.value.id),
+)
 
-const isMikuEasterEggActive = computed(() => {
-  return pokemon.value && MIKU_POKEMON_IDS.includes(pokemon.value.id)
-})
-
-// Función para obtener el ID de artwork correcto (especial para Mega Z)
+// Funciones de imagen
 const getArtworkId = (pokemonName, defaultId) => {
-  // Verificar si es una Mega especial
-  if (MEGA_SPECIAL_IDS[pokemonName]) {
-    console.log(`🎨 Usando ID especial para ${pokemonName}: ${MEGA_SPECIAL_IDS[pokemonName]}`)
-    return MEGA_SPECIAL_IDS[pokemonName]
-  }
+  if (MEGA_SPECIAL_IDS[pokemonName]) return MEGA_SPECIAL_IDS[pokemonName]
   return defaultId
 }
 
-// Función para obtener la URL del artwork oficial
 const getOfficialArtworkUrl = (pokemonName, pokemonId, isShinyValue = false) => {
   const artworkId = getArtworkId(pokemonName, pokemonId)
   if (!artworkId) return null
-
-  if (isShinyValue) {
-    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${artworkId}.png`
-  }
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${artworkId}.png`
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${isShinyValue ? 'shiny/' : ''}${artworkId}.png`
 }
 
-// Función para obtener la URL del sprite básico de PokeAPI
 const getBasicSpriteUrl = (pokemonName, pokemonId, isShinyValue = false, isBack = false) => {
   const artworkId = getArtworkId(pokemonName, pokemonId)
   if (!artworkId) return null
-
-  if (isBack) {
-    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${isShinyValue ? 'shiny/' : ''}${artworkId}.png`
-  }
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${isShinyValue ? 'shiny/' : ''}${artworkId}.png`
+  const backPath = isBack ? 'back/' : ''
+  const shinyPath = isShinyValue ? 'shiny/' : ''
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${backPath}${shinyPath}${artworkId}.png`
 }
 
-// URLs de sprites con múltiples niveles de fallback
 const getSpriteUrl = (type, isShinyValue = false) => {
   if (!pokemon.value) return notFound
+  const { name: pokemonName, id: pokemonId } = pokemon.value
 
-  const pokemonName = pokemon.value.name
-  const pokemonId = pokemon.value.id
-
-  // Nivel 1: Sprite de Showdown (si existe en el store)
   const showdownSprite = isShinyValue
     ? pokemon.value.sprites?.[type === 'front' ? 'front_shiny' : 'back_shiny']
     : pokemon.value.sprites?.[type === 'front' ? 'front_default' : 'back_default']
 
-  if (showdownSprite && !showdownSprite.includes('undefined')) {
-    console.log(`🎨 Usando sprite Showdown para ${pokemonName}: ${showdownSprite}`)
-    return showdownSprite
-  }
+  if (showdownSprite && !showdownSprite.includes('undefined')) return showdownSprite
 
-  // Nivel 2: Artwork oficial (con ID especial para Mega Z)
   const artworkUrl = getOfficialArtworkUrl(pokemonName, pokemonId, isShinyValue)
-  if (artworkUrl) {
-    console.log(`🎨 Usando artwork oficial para ${pokemonName}: ${artworkUrl}`)
-    return artworkUrl
-  }
+  if (artworkUrl) return artworkUrl
 
-  // Nivel 3: Sprite básico de PokeAPI
   const basicUrl = getBasicSpriteUrl(pokemonName, pokemonId, isShinyValue, type === 'back')
-  if (basicUrl) {
-    console.log(`🎨 Usando sprite básico para ${pokemonName}: ${basicUrl}`)
-    return basicUrl
-  }
+  if (basicUrl) return basicUrl
 
   return notFound
 }
@@ -188,65 +157,76 @@ const getSpriteUrl = (type, isShinyValue = false) => {
 const frontSpriteUrl = computed(() => getSpriteUrl('front', isShiny.value))
 const backSpriteUrl = computed(() => getSpriteUrl('back', isShiny.value))
 
-// Fallback cuando la imagen falla
 const handleImageError = (event, type) => {
   const img = event.target
-  if (!pokemon.value) return
-  if (img.src === notFound) return
+  if (!pokemon.value || img.src === notFound) return
 
-  const pokemonName = pokemon.value.name
-  const pokemonId = pokemon.value.id
-
-  console.log(`⚠️ Error cargando imagen para ${pokemonName}, tipo: ${type}`)
-
-  // Intentar con el siguiente nivel de fallback
+  const { name: pokemonName, id: pokemonId } = pokemon.value
   let newUrl = null
 
   if (img.src.includes('showdown') || img.src.includes('play.pokemonshowdown')) {
-    // Fallback a artwork oficial
     newUrl = getOfficialArtworkUrl(pokemonName, pokemonId, isShiny.value)
-    if (newUrl) {
-      console.log(`🔄 Fallback a artwork oficial: ${newUrl}`)
-      img.src = newUrl
-      return
-    }
-  }
-
-  if (img.src.includes('official-artwork')) {
-    // Fallback a sprite básico
+  } else if (img.src.includes('official-artwork')) {
     newUrl = getBasicSpriteUrl(pokemonName, pokemonId, isShiny.value, type === 'back')
-    if (newUrl) {
-      console.log(`🔄 Fallback a sprite básico: ${newUrl}`)
-      img.src = newUrl
-      return
-    }
   }
 
-  // Último recurso: notFound
-  console.log(`❌ Todos los fallbacks fallaron para ${pokemonName}`)
-  img.src = notFound
-  img.classList.add('image-error')
+  if (newUrl) {
+    img.src = newUrl
+  } else {
+    img.src = notFound
+    img.classList.add('image-error')
+  }
 }
 
 const handleFrontError = (event) => handleImageError(event, 'front')
 const handleBackError = (event) => handleImageError(event, 'back')
 
-// Función para activar/desactivar el Easter Egg
+// Easter Egg Miku
 const setupMikuEasterEgg = () => {
-  if (isMikuEasterEggActive.value && !mikuComposable) {
-    mikuComposable = useMiku()
-    console.log('🎵 Easter Egg de Miku activado')
-  } else if (!isMikuEasterEggActive.value && mikuComposable) {
-    mikuComposable = null
-    console.log('🎵 Easter Egg de Miku desactivado')
+  const shouldBeActive = isMikuEasterEggActive.value
+
+  if (shouldBeActive && !mikuEnabled.value) {
+    mikuEnabled.value = true
+    const buffer = []
+    const SECRET_WORD = 'miku'
+
+    const handleKeyDown = (e) => {
+      const activeElement = document.activeElement
+      if (
+        activeElement &&
+        (activeElement.tagName?.toLowerCase() === 'input' ||
+          activeElement.tagName?.toLowerCase() === 'textarea' ||
+          activeElement.isContentEditable)
+      ) {
+        return
+      }
+
+      if (e.key.length !== 1 || !e.key.match(/[a-zA-Z]/)) {
+        if (e.key === 'Escape' || e.key === 'Enter') buffer.length = 0
+        return
+      }
+
+      buffer.push(e.key.toLowerCase())
+      while (buffer.length > SECRET_WORD.length) buffer.shift()
+
+      if (buffer.join('') === SECRET_WORD) {
+        buffer.length = 0
+        easterEggStore.triggerMiku()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    cleanupMiku = () => window.removeEventListener('keydown', handleKeyDown)
+  } else if (!shouldBeActive && mikuEnabled.value) {
+    if (cleanupMiku) cleanupMiku()
+    cleanupMiku = null
+    mikuEnabled.value = false
   }
 }
 
 // Métodos
 const changeChart = () => (isBarChart.value = !isBarChart.value)
-const toggleShiny = () => {
-  isShiny.value = !isShiny.value
-}
+const toggleShiny = () => (isShiny.value = !isShiny.value)
 const goToHome = () => router.push('/')
 const handleHiddenButtonClick = () => easterEggStore.triggerSilla()
 
@@ -259,9 +239,7 @@ const handleSelectForm = async (form) => {
 
 const formatName = (name) => {
   const parts = name.split('-')
-  if (parts.length === 1) {
-    return parts[0].charAt(0).toUpperCase() + parts[0].slice(1)
-  }
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1)
   return parts
     .slice(1)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -270,24 +248,12 @@ const formatName = (name) => {
 
 const handleUpdateSort = (sortData) => {
   const { sortBy: newSortBy, sortOrder: newSortOrder } = sortData
-
   if (newSortBy === null) {
     setSortBy(null)
     return
   }
-
-  if (newSortBy === 'level') {
-    setSortBy('level')
-    if (sortOrder.value !== newSortOrder) {
-      toggleSortOrder()
-    }
-    return
-  }
-
   setSortBy(newSortBy)
-  if (sortOrder.value !== newSortOrder) {
-    toggleSortOrder()
-  }
+  if (sortOrder.value !== newSortOrder) toggleSortOrder()
 }
 
 // Opciones de filtros
@@ -329,18 +295,11 @@ const filteredAndSortedMoves = computed(() => {
         move.effect?.toLowerCase().includes(searchValue),
     )
   }
-
-  if (selectedType.value !== 'all') {
-    moves = moves.filter((move) => move.type === selectedType.value)
-  }
-
-  if (selectedCategory.value !== 'all') {
+  if (selectedType.value !== 'all') moves = moves.filter((move) => move.type === selectedType.value)
+  if (selectedCategory.value !== 'all')
     moves = moves.filter((move) => move.category === selectedCategory.value)
-  }
-
-  if (selectedMethod.value !== 'all') {
+  if (selectedMethod.value !== 'all')
     moves = moves.filter((move) => move.learnMethod === selectedMethod.value)
-  }
 
   if (sortBy.value === 'level') {
     return moves.sort((a, b) => {
@@ -356,36 +315,23 @@ const filteredAndSortedMoves = computed(() => {
     return moves.sort((a, b) => {
       let aVal = a[sortBy.value]
       let bVal = b[sortBy.value]
-
-      if (aVal === null || aVal === undefined || aVal === '-') {
+      if (aVal === null || aVal === undefined || aVal === '-')
         aVal = sortBy.value === 'name' ? 'zzz' : -Infinity
-      }
-      if (bVal === null || bVal === undefined || bVal === '-') {
+      if (bVal === null || bVal === undefined || bVal === '-')
         bVal = sortBy.value === 'name' ? 'zzz' : -Infinity
-      }
 
       if (sortBy.value === 'name') {
         aVal = String(aVal).toLowerCase()
         bVal = String(bVal).toLowerCase()
-        if (sortOrder.value === 'asc') {
-          return aVal.localeCompare(bVal)
-        } else {
-          return bVal.localeCompare(aVal)
-        }
+        return sortOrder.value === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
       }
-
-      if (sortOrder.value === 'asc') {
-        return aVal - bVal
-      } else {
-        return bVal - aVal
-      }
+      return sortOrder.value === 'asc' ? aVal - bVal : bVal - aVal
     })
   }
-
   return moves
 })
 
-// Watch para cambios de ruta
+// Watchers
 watch(route, async () => {
   await loadPokemon(route.params.id)
   resetFilters()
@@ -394,7 +340,6 @@ watch(route, async () => {
   setupMikuEasterEgg()
 })
 
-// Watch para cambios en el Pokémon actual
 watch(
   () => pokemon.value?.id,
   async () => {
@@ -421,278 +366,434 @@ onMounted(async () => {
 onUnmounted(() => {
   const timeout = searchStore._debounceTimeout
   if (timeout) clearTimeout(timeout)
-  mikuComposable = null
+  if (cleanupMiku) cleanupMiku()
+  mikuEnabled.value = false
   cleanupClickOutside()
 })
 </script>
 
 <template>
-  <div v-if="isLoading" class="min-h-screen flex items-center justify-center">
+  <div
+    v-if="isLoading"
+    class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100"
+  >
     <div class="text-center">
-      <div
-        class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"
-      ></div>
-      <p class="mt-4 text-gray-600">Cargando Pokémon...</p>
+      <div class="relative">
+        <div
+          class="inline-block animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600"
+        ></div>
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div
+            class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"
+          ></div>
+        </div>
+      </div>
+      <p class="mt-6 text-gray-600 font-medium">Cargando Pokémon...</p>
     </div>
   </div>
 
-  <div v-else-if="pokemon" class="w-full max-w-6xl mx-auto rounded-xl p-6 md:p-10 shadow-lg">
-    <!-- Botón de volver -->
-    <div class="mb-4">
-      <button
-        @click="goToHome"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200 shadow-md hover:shadow-lg"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-5 w-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M10 19l-7-7m0 0l7-7m-7 7h18"
-          />
-        </svg>
-        Volver al Inicio
-      </button>
-    </div>
-
-    <h1 class="font-black md:text-3xl text-xl text-red-900 mb-2">
-      <span>{{ formatPoke(pokemon.name) }}</span>
-      <span class="text-gray-400 text-base font-mono bg-gray-100 px-2 py-1 rounded-md ml-2">
-        #{{ String(pokemon.id).padStart(3, '0') }}
-      </span>
-    </h1>
-
-    <!-- Tipos y shiny toggle -->
-    <div class="flex flex-wrap items-center gap-3 mt-3">
-      <span
-        v-for="tipo in formattedTypes"
-        :key="tipo.tipo"
-        :class="tipo.color"
-        class="py-1 px-3 shadow-md rounded-full text-white font-semibold"
-      >
-        {{ tipo.tipo }}
-      </span>
-
-      <div class="relative inline-flex items-center gap-3">
+  <div
+    v-else-if="pokemon"
+    class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 py-8 px-4"
+  >
+    <div class="w-full max-w-6xl mx-auto">
+      <!-- Header con botón volver -->
+      <div class="mb-6">
         <button
-          @click="toggleShiny"
-          class="relative inline-flex items-center h-8 rounded-full w-14 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-          :class="isShiny ? 'bg-purple-500' : 'bg-gray-300'"
-          :aria-label="isShiny ? 'Cambiar a modo normal' : 'Cambiar a modo shiny'"
+          @click="goToHome"
+          class="group inline-flex items-center gap-2 px-5 py-2.5 bg-white/80 backdrop-blur-sm text-gray-700 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-200"
         >
-          <span
-            class="inline-block w-6 h-6 transform bg-white rounded-full transition-transform duration-300 shadow-md flex items-center justify-center"
-            :class="isShiny ? 'translate-x-7' : 'translate-x-1'"
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5 group-hover:-translate-x-1 transition-transform"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            <span v-if="isShiny" class="text-xs">✨</span>
-          </span>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            />
+          </svg>
+          Volver al Inicio
         </button>
-        <span class="text-sm font-medium" :class="isShiny ? 'text-purple-600' : 'text-gray-600'">
-          {{ isShiny ? 'Modo Shiny' : 'Modo Normal' }}
-        </span>
-        <button
-          @click="handleHiddenButtonClick"
-          class="absolute right-[-40px] top-0 w-10 h-10 opacity-0 cursor-pointer hover:opacity-20 transition-opacity"
-          aria-label="Botón secreto"
-        />
-      </div>
-    </div>
-
-    <!-- Habilidades -->
-    <div class="mt-4">
-      <h2 class="text-lg font-semibold text-gray-700 mb-2">Habilidades</h2>
-      <div class="flex flex-wrap items-center gap-2">
-        <button
-          v-for="ability in normalAbilities"
-          :key="ability.ability.name"
-          @click.stop="toggleAbility(ability)"
-          class="px-3 py-1 bg-gray-600 text-white text-sm font-medium rounded-full shadow-sm hover:bg-gray-700 hover:scale-105 transition-all duration-200 cursor-pointer"
-          :class="{
-            'ring-2 ring-blue-400 ring-offset-2': selectedAbility?.name === ability.ability.name,
-          }"
-        >
-          {{ abilityNames[ability.ability.name] || formatName(ability.ability.name) }}
-        </button>
-
-        <button
-          v-if="hiddenAbility"
-          @click.stop="toggleAbility(hiddenAbility)"
-          class="px-3 py-1 bg-amber-500 text-white text-sm font-medium rounded-full shadow-sm inline-flex items-center gap-1 hover:bg-amber-600 hover:scale-105 transition-all duration-200 cursor-pointer"
-          :class="{
-            'ring-2 ring-blue-400 ring-offset-2':
-              selectedAbility?.name === hiddenAbility.ability.name,
-          }"
-          title="Habilidad Oculta"
-        >
-          ✨
-          {{ abilityNames[hiddenAbility.ability.name] || formatName(hiddenAbility.ability.name) }}
-        </button>
-
-        <span
-          v-else
-          class="px-3 py-1 bg-gray-300 text-gray-500 text-sm font-medium rounded-full shadow-sm"
-        >
-          Sin habilidad oculta
-        </span>
       </div>
 
-      <div
-        v-if="selectedAbility"
-        class="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm transition-all"
-      >
-        <div class="flex justify-between items-start mb-2">
-          <div>
-            <h3 class="font-semibold text-gray-800">
-              {{ selectedAbility.formattedName }}
-              <span v-if="selectedAbility.isHidden" class="text-amber-600 text-sm ml-2"
-                >✨ Oculta</span
-              >
-            </h3>
+      <!-- Tarjeta principal -->
+      <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+        <!-- Header con gradiente según tipo -->
+        <div
+          class="relative overflow-hidden"
+          :class="
+            formattedTypes[0]?.color
+              ?.replace('bg-', 'bg-gradient-to-r from-')
+              .replace('text-white', 'to-50%') || 'bg-gradient-to-r from-gray-600 to-gray-800'
+          "
+        >
+          <div class="absolute inset-0 bg-black/20"></div>
+          <div class="relative px-6 py-8 md:px-8 md:py-10">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 class="font-black text-3xl md:text-5xl text-white drop-shadow-lg mb-2">
+                  {{ formatPoke(pokemon.name) }}
+                </h1>
+                <span
+                  class="inline-block bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-white text-sm font-mono"
+                >
+                  #{{ String(pokemon.id).padStart(4, '0') }}
+                </span>
+              </div>
+
+              <!-- Tipos y shiny toggle -->
+              <div class="flex flex-wrap items-center gap-3">
+                <span
+                  v-for="tipo in formattedTypes"
+                  :key="tipo.tipo"
+                  :class="tipo.color"
+                  class="px-4 py-2 rounded-full text-white font-semibold shadow-lg text-sm backdrop-blur-sm"
+                >
+                  {{ tipo.tipo }}
+                </span>
+
+                <div
+                  class="relative inline-flex items-center gap-3 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full"
+                >
+                  <button
+                    @click="toggleShiny"
+                    class="relative inline-flex items-center h-8 rounded-full w-14 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400"
+                    :class="
+                      isShiny ? 'bg-gradient-to-r from-yellow-400 to-yellow-500' : 'bg-gray-400'
+                    "
+                  >
+                    <span
+                      class="inline-block w-6 h-6 transform bg-white rounded-full transition-transform duration-300 shadow-md flex items-center justify-center"
+                      :class="isShiny ? 'translate-x-7' : 'translate-x-1'"
+                    >
+                      <span v-if="isShiny" class="text-sm">✨</span>
+                      <span v-else class="text-sm">⭐</span>
+                    </span>
+                  </button>
+                  <span class="text-sm font-medium text-white">
+                    {{ isShiny ? '✨ Shiny' : 'Normal' }}
+                  </span>
+                </div>
+                <button
+                  @click="handleHiddenButtonClick"
+                  class="w-8 h-8 opacity-0 hover:opacity-100 transition-opacity"
+                  aria-label="Botón secreto"
+                />
+              </div>
+            </div>
           </div>
-          <button @click="selectedAbility = null" class="text-gray-400 hover:text-gray-600">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        </div>
+
+        <!-- Contenido principal -->
+        <div class="p-6 md:p-8">
+          <!-- Sprites -->
+          <div class="grid grid-cols-2 gap-6 mb-8">
+            <div class="text-center group">
+              <div
+                class="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 hover:shadow-lg transition-all duration-300"
+              >
+                <img
+                  class="w-48 h-48 object-contain mx-auto transform group-hover:scale-110 transition-transform duration-300"
+                  :src="frontSpriteUrl"
+                  @error="handleFrontError"
+                  :alt="`${formatPoke(pokemon.name)} frente ${isShiny ? 'shiny' : 'normal'}`"
+                />
+                <p class="text-sm text-gray-500 mt-3 font-medium">Vista frontal</p>
+                <div v-if="isShiny" class="absolute top-2 right-2 text-2xl animate-pulse">✨</div>
+              </div>
+            </div>
+            <div class="text-center group">
+              <div
+                class="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 hover:shadow-lg transition-all duration-300"
+              >
+                <img
+                  class="w-48 h-48 object-contain mx-auto transform group-hover:scale-110 transition-transform duration-300"
+                  :src="backSpriteUrl"
+                  @error="handleBackError"
+                  :alt="`${formatPoke(pokemon.name)} espalda ${isShiny ? 'shiny' : 'normal'}`"
+                />
+                <p class="text-sm text-gray-500 mt-3 font-medium">Vista trasera</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Habilidades -->
+          <div class="mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <svg
+                class="w-6 h-6 text-blue-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+              Habilidades
+            </h2>
+            <div class="flex flex-wrap items-center gap-3">
+              <button
+                v-for="ability in normalAbilities"
+                :key="ability.ability.name"
+                @click.stop="toggleAbility(ability)"
+                class="group px-4 py-2 bg-gradient-to-r from-gray-700 to-gray-800 text-white text-sm font-medium rounded-xl shadow-md hover:shadow-xl hover:scale-105 transition-all duration-200 cursor-pointer"
+                :class="{
+                  'ring-2 ring-blue-400 ring-offset-2 shadow-lg':
+                    selectedAbility?.name === ability.ability.name,
+                }"
+              >
+                {{ abilityNames[ability.ability.name] || formatName(ability.ability.name) }}
+              </button>
+
+              <button
+                v-if="hiddenAbility"
+                @click.stop="toggleAbility(hiddenAbility)"
+                class="group px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium rounded-xl shadow-md hover:shadow-xl hover:scale-105 transition-all duration-200 cursor-pointer inline-flex items-center gap-1"
+                :class="{
+                  'ring-2 ring-blue-400 ring-offset-2 shadow-lg':
+                    selectedAbility?.name === hiddenAbility.ability.name,
+                }"
+              >
+                ✨
+                {{
+                  abilityNames[hiddenAbility.ability.name] || formatName(hiddenAbility.ability.name)
+                }}
+              </button>
+
+              <span
+                v-else
+                class="px-4 py-2 bg-gray-200 text-gray-500 text-sm font-medium rounded-xl"
+              >
+                Sin habilidad oculta
+              </span>
+            </div>
+
+            <!-- Descripción de habilidad -->
+            <div
+              v-if="selectedAbility"
+              class="mt-4 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 shadow-md transition-all"
+            >
+              <div class="flex justify-between items-start mb-3">
+                <div>
+                  <h3 class="font-bold text-gray-800 text-lg">
+                    {{ selectedAbility.formattedName }}
+                    <span v-if="selectedAbility.isHidden" class="text-amber-600 text-sm ml-2"
+                      >✨ Oculta</span
+                    >
+                  </h3>
+                </div>
+                <button
+                  @click="selectedAbility = null"
+                  class="text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full p-1 transition-colors"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div
+                v-if="loadingAbility === selectedAbility.name"
+                class="flex items-center gap-2 py-2"
+              >
+                <div
+                  class="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"
+                ></div>
+                <span class="text-sm text-gray-500">Cargando descripción...</span>
+              </div>
+              <p v-else class="text-gray-700 text-sm leading-relaxed">
+                {{ selectedAbility.description }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Formas alternativas -->
+          <div v-if="filteredForms.length > 1" class="mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <svg
+                class="w-6 h-6 text-purple-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Formas Alternativas
+            </h2>
+            <div class="flex flex-wrap justify-center gap-3">
+              <button
+                v-for="form in filteredForms"
+                :key="form.pokemon.name"
+                @click="handleSelectForm(form)"
+                :class="[
+                  'px-4 py-2 text-sm font-medium rounded-xl shadow-md transition-all duration-200',
+                  activeForm === form.pokemon.name
+                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white scale-105 ring-2 ring-blue-400 shadow-lg'
+                    : 'bg-gradient-to-r from-gray-600 to-gray-700 text-white hover:from-gray-700 hover:to-gray-800 hover:scale-105',
+                ]"
+              >
+                {{ formatName(form.pokemon.name) }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Cadenas de evolución -->
+          <EeveeEvolutions
+            :evolutions="evolutions"
+            :current-pokemon="pokemon.name"
+            :on-go-to-evolution="goToEvolution"
+          />
+
+          <EvolutionChain
+            v-if="!EEVEE_FAMILY.has(pokemon?.name)"
+            :evolutions="evolutions"
+            :current-pokemon="pokemon.name"
+            :on-go-to-evolution="goToEvolution"
+          />
+
+          <!-- Gráficos de estadísticas -->
+          <div class="mt-8">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <svg
+                  class="w-6 h-6 text-green-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+                Estadísticas Base
+              </h2>
+              <button
+                @click="changeChart"
+                class="group px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2"
+              >
+                <svg
+                  class="w-4 h-4 group-hover:rotate-180 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M7 16V4m0 0L3 8m4-4l4 4m6 12v-4m0 0l-4 4m4-4l4-4"
+                  />
+                </svg>
+                {{ isBarChart ? 'Ver Radar' : 'Ver Barras' }}
+              </button>
+            </div>
+            <div
+              :class="[
+                isBarChart ? 'bg-gradient-to-br from-gray-50 to-gray-100' : '',
+                'w-full rounded-2xl shadow-lg p-6 border border-gray-200',
+              ]"
+            >
+              <component :is="isBarChart ? BarChar : RadarChar" :stats="stats" />
+            </div>
+          </div>
+
+          <!-- Sección de movimientos -->
+          <div v-if="!isGigantamax" class="mt-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <svg
+                class="w-6 h-6 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M14.121 14.121L19 19m-7-7l4-4m0 0l-4-4m4 4H5"
+                />
+              </svg>
+              Lista de Movimientos
+            </h2>
+            <MoveTable
+              :moves="filteredAndSortedMoves"
+              :total-moves="movesPokemon.length"
+              :filtered-count="filteredAndSortedMoves.length"
+              :is-search-active="isSearchActive"
+              :tipo-options="tipoOptions"
+              :categoria-options="categoriaOptions"
+              :method-options="methodOptions"
+              :search-term="searchTerm"
+              :selected-type="selectedType"
+              :selected-category="selectedCategory"
+              :selected-method="selectedMethod"
+              :sort-by="sortBy"
+              :sort-order="sortOrder"
+              :is-typing="isTyping"
+              @update:search-term="setSearchTerm"
+              @update:selected-type="setSelectedType"
+              @update:selected-category="setSelectedCategory"
+              @update:selected-method="setSelectedMethod"
+              @update:sort="handleUpdateSort"
+              @reset-filters="resetFilters"
+            />
+          </div>
+
+          <div v-else class="mt-8 text-center py-12 bg-gray-50 rounded-xl">
+            <svg
+              class="w-16 h-16 text-gray-400 mx-auto mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
+                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
               />
             </svg>
-          </button>
+            <p class="text-gray-500 text-lg">Sin movimientos disponibles para formas Gigantamax</p>
+          </div>
         </div>
-
-        <div v-if="loadingAbility === selectedAbility.name" class="text-center py-2">
-          <div
-            class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"
-          ></div>
-          <span class="text-sm text-gray-500 ml-2">Cargando descripción...</span>
-        </div>
-        <p v-else class="text-gray-600 text-sm leading-relaxed">
-          {{ selectedAbility.description }}
-        </p>
       </div>
+
+      <ScrollToTop />
     </div>
-
-    <!-- Sprites -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 place-items-center gap-4 mt-6">
-      <div class="text-center">
-        <img
-          class="w-40 h-40 object-contain"
-          :src="frontSpriteUrl"
-          @error="handleFrontError"
-          :alt="`${formatPoke(pokemon.name)} frente ${isShiny ? 'shiny' : 'normal'}`"
-        />
-        <p class="text-sm text-gray-600 mt-2">Frente</p>
-      </div>
-      <div class="text-center">
-        <img
-          class="w-40 h-40 object-contain"
-          :src="backSpriteUrl"
-          @error="handleBackError"
-          :alt="`${formatPoke(pokemon.name)} espalda ${isShiny ? 'shiny' : 'normal'}`"
-        />
-        <p class="text-sm text-gray-600 mt-2">Espalda</p>
-      </div>
-    </div>
-
-    <!-- Formas alternativas -->
-    <div v-if="filteredForms.length > 1" class="mt-6 text-center">
-      <h2 class="text-lg sm:text-xl md:text-2xl font-bold">Formas</h2>
-      <div class="flex flex-wrap justify-center gap-2 mt-3">
-        <button
-          v-for="form in filteredForms"
-          :key="form.pokemon.name"
-          @click="handleSelectForm(form)"
-          :class="[
-            'px-3 py-1.5 text-sm font-medium rounded-lg shadow transition-all duration-200',
-            activeForm === form.pokemon.name
-              ? 'bg-blue-700 text-white scale-105 ring-2 ring-blue-400'
-              : 'bg-gradient-to-r from-blue-400 to-blue-600 text-white hover:from-blue-500 hover:to-blue-700 hover:scale-105',
-          ]"
-        >
-          {{ formatName(form.pokemon.name) }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Cadenas de evolución -->
-    <EeveeEvolutions
-      :evolutions="evolutions"
-      :current-pokemon="pokemon.name"
-      :on-go-to-evolution="goToEvolution"
-    />
-
-    <EvolutionChain
-      v-if="!EEVEE_FAMILY.has(pokemon?.name)"
-      :evolutions="evolutions"
-      :current-pokemon="pokemon.name"
-      :on-go-to-evolution="goToEvolution"
-    />
-
-    <!-- Gráficos de estadísticas -->
-    <div class="mt-8">
-      <button
-        @click="changeChart"
-        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 mb-4 transition-colors"
-      >
-        {{ isBarChart ? 'Ver Radar' : 'Ver Barras' }}
-      </button>
-      <div
-        v-if="formattedTypes.length"
-        :class="[
-          isBarChart ? formattedTypes[0].color : '',
-          'w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl mx-auto rounded-lg shadow-lg p-4',
-        ]"
-      >
-        <component :is="isBarChart ? BarChar : RadarChar" :stats="stats" />
-      </div>
-    </div>
-
-    <!-- Sección de movimientos -->
-    <div v-if="!isGigantamax" class="mt-8">
-      <MoveTable
-        :moves="filteredAndSortedMoves"
-        :total-moves="movesPokemon.length"
-        :filtered-count="filteredAndSortedMoves.length"
-        :is-search-active="isSearchActive"
-        :tipo-options="tipoOptions"
-        :categoria-options="categoriaOptions"
-        :method-options="methodOptions"
-        :search-term="searchTerm"
-        :selected-type="selectedType"
-        :selected-category="selectedCategory"
-        :selected-method="selectedMethod"
-        :sort-by="sortBy"
-        :sort-order="sortOrder"
-        :is-typing="isTyping"
-        @update:search-term="setSearchTerm"
-        @update:selected-type="setSelectedType"
-        @update:selected-category="setSelectedCategory"
-        @update:selected-method="setSelectedMethod"
-        @update:sort="handleUpdateSort"
-        @reset-filters="resetFilters"
-      />
-    </div>
-
-    <div v-else class="mt-8 text-center text-gray-400 italic">
-      Sin movimientos disponibles para formas Gigantamax
-    </div>
-
-    <ScrollToTop />
   </div>
 
-  <div v-else class="min-h-screen flex items-center justify-center">
+  <div
+    v-else
+    class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100"
+  >
     <div class="text-center">
+      <div class="text-6xl mb-4">🔍</div>
       <p class="text-gray-500 text-lg">Pokémon no encontrado</p>
       <button
         @click="goToHome"
-        class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        class="mt-6 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
       >
         Volver al inicio
       </button>
@@ -704,7 +805,30 @@ onUnmounted(() => {
 .image-error {
   opacity: 0.7;
   object-fit: contain;
-  padding: 8px;
   filter: grayscale(0.3);
+}
+
+/* Animaciones suaves */
+* {
+  transition: all 0.2s ease;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 </style>
