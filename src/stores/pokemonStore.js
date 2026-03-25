@@ -353,13 +353,7 @@ export const usePokemonStore = defineStore(
         // Registrar visita
         historyStore.addVisit(cachedPokemon)
 
-        Swal.fire({
-          title: 'Cargando desde caché...',
-          text: 'Cargando datos adicionales...',
-          allowOutsideClick: false,
-          showConfirmButton: false,
-          didOpen: () => Swal.showLoading(),
-        })
+        // ALERTA DE CARGA ELIMINADA - Ya no se muestra SweetAlert
 
         try {
           const speciesId = await getBaseSpeciesId(cachedPokemon.name, id)
@@ -383,9 +377,10 @@ export const usePokemonStore = defineStore(
             prefetchForms(speciesForms, id)
           }
 
-          Swal.close()
+          // Swal.close() ELIMINADO
         } catch (error) {
           console.error('Error cargando datos adicionales:', error)
+          // Mantener solo alerta de error importante
           Swal.fire({
             icon: 'warning',
             title: 'Datos incompletos',
@@ -401,12 +396,7 @@ export const usePokemonStore = defineStore(
       console.log(`🌐 Cargando Pokémon ${id} desde API`)
       pokemon.value = null
 
-      Swal.fire({
-        title: 'Cargando Pokémon...',
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        didOpen: () => Swal.showLoading(),
-      })
+      // ALERTA DE CARGA ELIMINADA - Ya no se muestra SweetAlert
 
       try {
         let pokemonData = await getPokemon(id)
@@ -441,6 +431,7 @@ export const usePokemonStore = defineStore(
         }
       } catch (error) {
         console.error('Error cargando Pokémon:', error)
+        // Mantener solo alerta de error importante
         Swal.fire({
           icon: 'error',
           title: 'Error',
@@ -448,7 +439,7 @@ export const usePokemonStore = defineStore(
         })
       } finally {
         isLoading.value = false
-        Swal.close()
+        // Swal.close() ELIMINADO
       }
     }
 
@@ -459,12 +450,7 @@ export const usePokemonStore = defineStore(
       loadingFromCache.value = false
       pokemon.value = null
 
-      Swal.fire({
-        title: 'Cargando forma...',
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        didOpen: () => Swal.showLoading(),
-      })
+      // ALERTA DE CARGA ELIMINADA - Ya no se muestra SweetAlert
 
       try {
         const formId = parseInt(form.pokemon.url.split('/').filter(Boolean).pop())
@@ -511,9 +497,15 @@ export const usePokemonStore = defineStore(
         }
       } catch (error) {
         console.error('Error cargando forma:', error)
+        // Mantener solo alerta de error importante
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo cargar la forma del Pokémon',
+        })
       } finally {
         isLoading.value = false
-        Swal.close()
+        // Swal.close() ELIMINADO
       }
     }
 
