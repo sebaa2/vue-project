@@ -7,6 +7,7 @@ import { usePokemonStore } from '../stores/pokemonStore.js'
 import { useSearchStore } from '../stores/searchStore.js'
 import { useEasterEggStore } from '../stores/EastereggStore.js'
 import { useMiku } from '../composables/useMiku.js'
+import { useAbilityModal } from '../composables/useAbilityModal.js'
 import ScrollToTop from '../components/ScrollToTop.vue'
 import BarChar from '../components/BarChar.vue'
 import RadarChar from '../components/RadarChar.vue'
@@ -40,7 +41,6 @@ const EEVEE_FAMILY = new Set([
   'sylveon-gmax',
 ])
 
-// IDs de Pokémon donde el Easter Egg de Miku debe estar activo
 const MIKU_POKEMON_IDS = [83, 648] // Farfetch'd (83) y Meloetta (648)
 
 // Métodos de aprendizaje disponibles
@@ -69,6 +69,8 @@ const {
   formattedTypes,
   currentSprite,
   filteredForms,
+  normalAbilities,
+  hiddenAbility,
 } = storeToRefs(pokemonStore)
 
 const {
@@ -100,13 +102,24 @@ const isBarChart = ref(true)
 const isShiny = ref(false)
 const activeForm = ref(null)
 
-// Estado para el Easter Egg de Miku
 let mikuComposable = null
+
+// Modal de habilidades
+const {
+  selectedAbility,
+  loadingAbility,
+  abilityNames,
+  toggleAbility,
+  getCachedAbilityName,
+  preloadAbilityNames,
+  setupClickOutside,
+  cleanupClickOutside,
+} = useAbilityModal()
 
 // Computed
 const isGigantamax = computed(() => pokemon.value?.name?.includes('-gmax') || false)
 
-// Computed para verificar si el Easter Egg de Miku debe estar activo
+// Computed para verificar si el Easter Egg debe estar activo
 const isMikuEasterEggActive = computed(() => {
   return pokemon.value && MIKU_POKEMON_IDS.includes(pokemon.value.id)
 })
@@ -115,13 +128,25 @@ const isMikuEasterEggActive = computed(() => {
 const handleUpdateSort = (sortData) => {
   const { sortBy: newSortBy, sortOrder: newSortOrder } = sortData
 
+  // Si es null, resetear ordenamiento
   if (newSortBy === null) {
     setSortBy(null)
-  } else {
-    setSortBy(newSortBy)
+    return
+  }
+
+  // Si el ordenamiento es por nivel
+  if (newSortBy === 'level') {
+    setSortBy('level')
     if (sortOrder.value !== newSortOrder) {
       toggleSortOrder()
     }
+    return
+  }
+
+  // Para otros campos
+  setSortBy(newSortBy)
+  if (sortOrder.value !== newSortOrder) {
+    toggleSortOrder()
   }
 }
 
@@ -160,6 +185,7 @@ const filteredAndSortedMoves = computed(() => {
   let moves = [...movesPokemon.value]
   const searchValue = searchTermDebounced.value?.toLowerCase()
 
+  // Filtro por búsqueda
   if (searchValue) {
     moves = moves.filter(
       (move) =>
@@ -168,30 +194,48 @@ const filteredAndSortedMoves = computed(() => {
     )
   }
 
+  // Filtro por tipo
   if (selectedType.value !== 'all') {
     moves = moves.filter((move) => move.type === selectedType.value)
   }
 
+  // Filtro por categoría
   if (selectedCategory.value !== 'all') {
     moves = moves.filter((move) => move.category === selectedCategory.value)
   }
 
+  // Filtro por método
   if (selectedMethod.value !== 'all') {
     moves = moves.filter((move) => move.learnMethod === selectedMethod.value)
   }
 
+  // Ordenamiento por nivel (especial para level-up)
+  if (sortBy.value === 'level') {
+    return moves.sort((a, b) => {
+      // Los movimientos que no tienen nivel (como MT, huevo, tutor) van al final
+      const levelA =
+        a.levelLearnedAt !== undefined && a.levelLearnedAt !== null ? a.levelLearnedAt : Infinity
+      const levelB =
+        b.levelLearnedAt !== undefined && b.levelLearnedAt !== null ? b.levelLearnedAt : Infinity
+      return sortOrder.value === 'asc' ? levelA - levelB : levelB - levelA
+    })
+  }
+
+  // Ordenamiento existente para otros campos
   if (sortBy.value && sortBy.value !== null) {
     return moves.sort((a, b) => {
       let aVal = a[sortBy.value]
       let bVal = b[sortBy.value]
 
-      if (aVal === null || aVal === undefined) {
+      // Manejar valores nulos o indefinidos
+      if (aVal === null || aVal === undefined || aVal === '-') {
         aVal = sortBy.value === 'name' ? 'zzz' : -Infinity
       }
-      if (bVal === null || bVal === undefined) {
+      if (bVal === null || bVal === undefined || bVal === '-') {
         bVal = sortBy.value === 'name' ? 'zzz' : -Infinity
       }
 
+      // Ordenamiento por nombre (alfabético)
       if (sortBy.value === 'name') {
         aVal = String(aVal).toLowerCase()
         bVal = String(bVal).toLowerCase()
@@ -202,6 +246,7 @@ const filteredAndSortedMoves = computed(() => {
         }
       }
 
+      // Ordenamiento por valores numéricos
       if (sortOrder.value === 'asc') {
         return aVal - bVal
       } else {
@@ -213,7 +258,7 @@ const filteredAndSortedMoves = computed(() => {
   return moves
 })
 
-// Función para activar/desactivar el Easter Egg de Miku
+// Función para activar/desactivar el Easter Egg
 const setupMikuEasterEgg = () => {
   if (isMikuEasterEggActive.value && !mikuComposable) {
     mikuComposable = useMiku()
@@ -258,8 +303,16 @@ watch(route, async () => {
 // Watch para cambios en el Pokémon actual
 watch(
   () => pokemon.value?.id,
-  () => {
+  async () => {
     setupMikuEasterEgg()
+    // Precargar nombres de habilidades
+    if (normalAbilities.value?.length > 0 || hiddenAbility.value) {
+      const allAbilities = [
+        ...(normalAbilities.value || []),
+        ...(hiddenAbility.value ? [hiddenAbility.value] : []),
+      ]
+      await preloadAbilityNames(allAbilities)
+    }
   },
   { immediate: true },
 )
@@ -269,12 +322,14 @@ onMounted(async () => {
   await loadPokemon(route.params.id)
   await nextTick()
   setupMikuEasterEgg()
+  setupClickOutside()
 })
 
 onUnmounted(() => {
   const timeout = searchStore._debounceTimeout
   if (timeout) clearTimeout(timeout)
   mikuComposable = null
+  cleanupClickOutside()
 })
 </script>
 
@@ -346,6 +401,85 @@ onUnmounted(() => {
           class="absolute right-[-40px] top-0 w-10 h-10 opacity-0 cursor-pointer hover:opacity-20 transition-opacity"
           aria-label="Botón secreto"
         />
+      </div>
+    </div>
+
+    <!-- Habilidades -->
+    <div class="mt-4">
+      <h2 class="text-lg font-semibold text-gray-700 mb-2">Habilidades</h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Habilidades normales -->
+        <button
+          v-for="ability in normalAbilities"
+          :key="ability.ability.name"
+          @click.stop="toggleAbility(ability)"
+          class="ability-button px-3 py-1 bg-gray-600 text-white text-sm font-medium rounded-full shadow-sm hover:bg-gray-700 hover:scale-105 transition-all duration-200 cursor-pointer"
+          :class="{
+            'ring-2 ring-blue-400 ring-offset-2': selectedAbility?.name === ability.ability.name,
+          }"
+        >
+          {{ abilityNames[ability.ability.name] || formatName(ability.ability.name) }}
+        </button>
+
+        <!-- Habilidad oculta -->
+        <button
+          v-if="hiddenAbility"
+          @click.stop="toggleAbility(hiddenAbility)"
+          class="ability-button px-3 py-1 bg-amber-500 text-white text-sm font-medium rounded-full shadow-sm inline-flex items-center gap-1 hover:bg-amber-600 hover:scale-105 transition-all duration-200 cursor-pointer"
+          :class="{
+            'ring-2 ring-blue-400 ring-offset-2':
+              selectedAbility?.name === hiddenAbility.ability.name,
+          }"
+          title="Habilidad Oculta"
+        >
+          ✨
+          {{ abilityNames[hiddenAbility.ability.name] || formatName(hiddenAbility.ability.name) }}
+        </button>
+
+        <!-- Mensaje si no hay habilidad oculta -->
+        <span
+          v-else
+          class="px-3 py-1 bg-gray-300 text-gray-500 text-sm font-medium rounded-full shadow-sm"
+        >
+          Sin habilidad oculta
+        </span>
+      </div>
+
+      <!-- Descripción desplegada -->
+      <div
+        v-if="selectedAbility"
+        class="ability-description mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm transition-all"
+      >
+        <div class="flex justify-between items-start mb-2">
+          <div>
+            <h3 class="font-semibold text-gray-800">
+              {{ selectedAbility.formattedName }}
+              <span v-if="selectedAbility.isHidden" class="text-amber-600 text-sm ml-2"
+                >✨ Oculta</span
+              >
+            </h3>
+          </div>
+          <button @click="selectedAbility = null" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div v-if="loadingAbility === selectedAbility.name" class="text-center py-2">
+          <div
+            class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"
+          ></div>
+          <span class="text-sm text-gray-500 ml-2">Cargando descripción...</span>
+        </div>
+        <p v-else class="text-gray-600 text-sm leading-relaxed">
+          {{ selectedAbility.description }}
+        </p>
       </div>
     </div>
 

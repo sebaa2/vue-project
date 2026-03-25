@@ -15,7 +15,6 @@ import Swal from 'sweetalert2'
 import { usePokemonCacheStore } from './pokemonCacheStore.js'
 import { useHistoryStore } from './historyStore.js'
 
-
 export const usePokemonStore = defineStore(
   'pokemon',
   () => {
@@ -132,6 +131,20 @@ export const usePokemonStore = defineStore(
         activeTimeouts.value.evolution !== null ||
         Object.keys(activeTimeouts.value.forms).length > 0
       )
+    })
+
+    const abilities = computed(() => {
+      if (!pokemon.value) return []
+      return pokemon.value.abilities || []
+    })
+
+    const normalAbilities = computed(() => {
+      return abilities.value.filter((a) => !a.is_hidden)
+    })
+
+    const hiddenAbility = computed(() => {
+      const hidden = abilities.value.find((a) => a.is_hidden)
+      return hidden || null
     })
 
     // ==================== HELPERS ====================
@@ -582,6 +595,9 @@ export const usePokemonStore = defineStore(
       uniqueCategories,
       isFromCache,
       hasActiveTimeouts,
+      abilities,
+      normalAbilities,
+      hiddenAbility,
       // actions
       loadPokemon,
       selectForm,

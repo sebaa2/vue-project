@@ -36,6 +36,21 @@ const checkScreenSize = () => {
 
 // Manejar ordenamiento con ciclo: ascendente -> descendente -> desactivado
 const handleSetSortBy = (sortByValue) => {
+  // Si es el método "level-up", ordenar por nivel
+  if (sortByValue === 'level' && props.selectedMethod === 'level-up') {
+    if (props.sortBy === 'level') {
+      if (props.sortOrder === 'asc') {
+        emit('update:sort', { sortBy: 'level', sortOrder: 'desc' })
+      } else if (props.sortOrder === 'desc') {
+        emit('update:sort', { sortBy: null, sortOrder: 'asc' })
+      }
+    } else {
+      emit('update:sort', { sortBy: 'level', sortOrder: 'asc' })
+    }
+    return
+  }
+
+  // Para otros tipos de ordenamiento
   if (props.sortBy === sortByValue) {
     if (props.sortOrder === 'asc') {
       emit('update:sort', { sortBy: sortByValue, sortOrder: 'desc' })
@@ -45,6 +60,24 @@ const handleSetSortBy = (sortByValue) => {
   } else {
     emit('update:sort', { sortBy: sortByValue, sortOrder: 'asc' })
   }
+}
+
+// Manejar selección de método
+const handleSelectMethod = (methodValue) => {
+  if (props.selectedMethod === methodValue) {
+    emit('update:selectedMethod', 'all')
+    // Si se deselecciona el método "level-up", resetear el ordenamiento por nivel
+    if (methodValue === 'level-up') {
+      emit('update:sort', { sortBy: null, sortOrder: 'asc' })
+    }
+  } else {
+    emit('update:selectedMethod', methodValue)
+    // Si se selecciona el método "level-up", activar ordenamiento por nivel automáticamente
+    if (methodValue === 'level-up') {
+      emit('update:sort', { sortBy: 'level', sortOrder: 'asc' })
+    }
+  }
+  showMethodMenu.value = false
 }
 
 // Manejar selección de tipo
@@ -65,16 +98,6 @@ const handleSelectCategory = (categoryValue) => {
     emit('update:selectedCategory', categoryValue)
   }
   showCategoryMenu.value = false
-}
-
-// Manejar selección de método
-const handleSelectMethod = (methodValue) => {
-  if (props.selectedMethod === methodValue) {
-    emit('update:selectedMethod', 'all')
-  } else {
-    emit('update:selectedMethod', methodValue)
-  }
-  showMethodMenu.value = false
 }
 
 // Función para obtener el color del tipo

@@ -182,12 +182,6 @@ export const useEasterEggStore = defineStore(
       if (mikuTimesTriggered.value === 1) {
         mikuFirstTriggeredAt.value = now
       }
-
-      // Opcional: agregar sonido si tienes uno
-      // const audio = new Audio(soundMiku)
-      // audio.volume = 0.5
-      // audio.play()
-
       Swal.fire({
         title: '🎵 ¡MIKU APARECIÓ! 🎵',
         html: `
