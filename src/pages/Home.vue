@@ -5,7 +5,7 @@
       <!-- 🔴 BARRA DE CARGA MIENTRAS CARGA 🔴 -->
       <div v-if="isLoading" class="flex flex-col items-center justify-center min-h-[60vh]">
         <div class="text-center">
-          <h1 class="text-4xl md:text-5xl font-black text-red-800 mb-8">Pokédex</h1>
+          <h1 class="text-4xl md:text-5xl font-black text-red-800 mb-8">PokéVite</h1>
 
           <!-- Barra de progreso -->
           <div class="w-80 md:w-96 mb-4">

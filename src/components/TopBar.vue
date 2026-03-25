@@ -1,6 +1,6 @@
 <template>
   <header class="bg-red-700 text-white mb-4 py-8 px-6 relative">
-    <h1 class="text-3xl font-bold text-center">Pokemon + Vite</h1>
+    <h1 class="text-3xl font-bold text-center">PokeVite</h1>
 
     <!-- Mostrar la barra de búsqueda solo si NO está en home -->
     <div v-if="!isHomeRoute" class="flex gap-4 justify-center mt-4">

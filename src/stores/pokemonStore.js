@@ -8,7 +8,7 @@ import { getMoves } from '../helpers/getMoves.js'
 import { formatTipos } from '../config/arrayTipo.js'
 import {
   shouldUseShowdown,
-  getShowdownSpritesWithFallback,
+  getShowdownSpritesWithArtwork,
   CHERRIM_SUNSHINE_SPRITES,
 } from '../helpers/showdownSprites.js'
 import Swal from 'sweetalert2'
@@ -28,6 +28,7 @@ export const usePokemonStore = defineStore(
     const loadingFromCache = ref(false)
 
     const fallbackSpritesStatus = ref({})
+    const spriteErrorLevel = ref({})
 
     const activeTimeouts = ref({
       prefetch: null,
@@ -63,14 +64,28 @@ export const usePokemonStore = defineStore(
       if (!pokemon.value) return {}
       const spriteTypes = ['front_default', 'front_shiny', 'back_default', 'back_shiny']
       const sprites = {}
-
-      const useFallback = fallbackSpritesStatus.value[pokemon.value.id] || false
+      const level = spriteErrorLevel.value[pokemon.value.id] || 0
 
       spriteTypes.forEach((type) => {
-        if (useFallback && pokemon.value._fallbackSprites) {
-          sprites[type] = pokemon.value._fallbackSprites[type]
-        } else {
+        if (level === 0 && pokemon.value.sprites && pokemon.value.sprites[type]) {
           sprites[type] = pokemon.value.sprites[type]
+        } else if (level === 1 && pokemon.value._fallbackSprites?.[type]) {
+          sprites[type] = pokemon.value._fallbackSprites[type]
+        } else if (level === 2 && pokemon.value._officialArtwork?.[type]) {
+          sprites[type] = pokemon.value._officialArtwork[type]
+        } else if (level >= 3) {
+          // Último recurso: sprite básico de PokeAPI
+          const isBack = type.includes('back')
+          const isShiny = type.includes('shiny')
+          const baseUrl = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'
+          
+          if (isBack) {
+            sprites[type] = `${baseUrl}back/${isShiny ? 'shiny/' : ''}${pokemon.value.id}.png`
+          } else {
+            sprites[type] = `${baseUrl}${isShiny ? 'shiny/' : ''}${pokemon.value.id}.png`
+          }
+        } else {
+          sprites[type] = pokemon.value.sprites?.[type] || null
         }
       })
 
@@ -147,23 +162,68 @@ export const usePokemonStore = defineStore(
       return hidden || null
     })
 
+    const currentSpriteErrorLevel = computed(() => {
+      if (!pokemon.value) return 0
+      return spriteErrorLevel.value[pokemon.value.id] || 0
+    })
+
+    const useFallbackSprite = computed(() => {
+      if (!pokemon.value) return false
+      const level = spriteErrorLevel.value[pokemon.value.id] || 0
+      return level >= 1
+    })
+
     // ==================== HELPERS ====================
-    const applySprites = (pokemonData) => {
+    const applySprites = async (pokemonData) => {
       const pokemonName = pokemonData.name
       console.log(`🎨 Aplicando sprites para: ${pokemonName}`)
 
       if (pokemonName === 'cherrim-sunshine') {
         pokemonData.sprites = { ...pokemonData.sprites, ...CHERRIM_SUNSHINE_SPRITES }
         pokemonData._fallbackSprites = null
+        pokemonData._officialArtwork = null
       } else if (shouldUseShowdown(pokemonName)) {
-        const showdownSprites = getShowdownSpritesWithFallback(pokemonName)
-        pokemonData.sprites = { ...pokemonData.sprites, ...showdownSprites.animated }
-        pokemonData._fallbackSprites = showdownSprites.fallback
+        try {
+          const showdownSprites = await getShowdownSpritesWithArtwork(pokemonName)
+          pokemonData.sprites = { ...pokemonData.sprites, ...showdownSprites.animated }
+          pokemonData._fallbackSprites = showdownSprites.fallback
+          pokemonData._officialArtwork = showdownSprites.officialArtwork
+        } catch (error) {
+          console.error(`Error obteniendo sprites para ${pokemonName}:`, error)
+          // Fallback a sprites básicos de PokeAPI
+          const baseUrl = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'
+          pokemonData.sprites = {
+            front_default: `${baseUrl}${pokemonData.id}.png`,
+            front_shiny: `${baseUrl}shiny/${pokemonData.id}.png`,
+            back_default: `${baseUrl}back/${pokemonData.id}.png`,
+            back_shiny: `${baseUrl}back/shiny/${pokemonData.id}.png`,
+          }
+          pokemonData._fallbackSprites = null
+          pokemonData._officialArtwork = null
+        }
 
         fallbackSpritesStatus.value[pokemonData.id] = false
+        spriteErrorLevel.value[pokemonData.id] = 0
       }
 
       return pokemonData
+    }
+
+    const incrementSpriteErrorLevel = (pokemonId) => {
+      const currentLevel = spriteErrorLevel.value[pokemonId] || 0
+      if (currentLevel < 3) {
+        spriteErrorLevel.value[pokemonId] = currentLevel + 1
+        console.log(`🖼️ Pokémon ${pokemonId} - Nivel de sprite aumentado a: ${currentLevel + 1}`)
+        
+        // Guardar en caché el nivel de error
+        pokemonCache.setMetadata(`sprite_error_level_${pokemonId}`, currentLevel + 1)
+      }
+      return spriteErrorLevel.value[pokemonId]
+    }
+
+    const resetSpriteErrorLevel = (pokemonId) => {
+      spriteErrorLevel.value[pokemonId] = 0
+      pokemonCache.setMetadata(`sprite_error_level_${pokemonId}`, 0)
     }
 
     const getBaseSpeciesId = async (pokemonName, currentId) => {
@@ -232,8 +292,8 @@ export const usePokemonStore = defineStore(
           console.log(`🔄 Precargando Pokémon #${nextId}...`)
 
           getPokemon(nextId)
-            .then((data) => {
-              const processedData = applySprites(data)
+            .then(async (data) => {
+              const processedData = await applySprites(data)
               pokemonCache.setPokemon(nextId, processedData)
               console.log(`✅ Pokémon #${nextId} precargado`)
             })
@@ -264,8 +324,8 @@ export const usePokemonStore = defineStore(
           console.log(`🔄 Precargando evolución: ${mainEvolution.name}...`)
 
           getPokemon(mainEvolution.id)
-            .then((data) => {
-              const processedData = applySprites(data)
+            .then(async (data) => {
+              const processedData = await applySprites(data)
               pokemonCache.setPokemon(mainEvolution.id, processedData)
               console.log(`✅ Evolución ${mainEvolution.name} precargada`)
             })
@@ -303,8 +363,8 @@ export const usePokemonStore = defineStore(
             console.log(`🔄 Precargando forma: ${form.pokemon.name}...`)
 
             getPokemon(formId)
-              .then((data) => {
-                const processedData = applySprites(data)
+              .then(async (data) => {
+                const processedData = await applySprites(data)
                 pokemonCache.setPokemon(parseInt(formId), processedData)
                 console.log(`✅ Forma ${form.pokemon.name} precargada`)
               })
@@ -346,6 +406,13 @@ export const usePokemonStore = defineStore(
         const savedFallbackStatus = pokemonCache.getMetadata(`fallback_${id}`)
         if (savedFallbackStatus !== undefined) {
           fallbackSpritesStatus.value[id] = savedFallbackStatus
+        }
+
+        const savedErrorLevel = pokemonCache.getMetadata(`sprite_error_level_${id}`)
+        if (savedErrorLevel !== undefined) {
+          spriteErrorLevel.value[id] = savedErrorLevel
+        } else {
+          spriteErrorLevel.value[id] = 0
         }
 
         pokemon.value = cachedPokemon
@@ -410,7 +477,7 @@ export const usePokemonStore = defineStore(
 
       try {
         let pokemonData = await getPokemon(id)
-        pokemonData = applySprites(pokemonData)
+        pokemonData = await applySprites(pokemonData)
         pokemon.value = pokemonData
 
         // Registrar visita
@@ -430,6 +497,7 @@ export const usePokemonStore = defineStore(
 
         pokemonCache.setPokemon(id, pokemonData)
         pokemonCache.setMetadata(`fallback_${id}`, false)
+        pokemonCache.setMetadata(`sprite_error_level_${id}`, 0)
 
         if (evolutionChain && evolutionChain.length > 0) {
           prefetchMainEvolution(evolutionChain)
@@ -479,6 +547,13 @@ export const usePokemonStore = defineStore(
             fallbackSpritesStatus.value[formId] = savedFallbackStatus
           }
 
+          const savedErrorLevel = pokemonCache.getMetadata(`sprite_error_level_${formId}`)
+          if (savedErrorLevel !== undefined) {
+            spriteErrorLevel.value[formId] = savedErrorLevel
+          } else {
+            spriteErrorLevel.value[formId] = 0
+          }
+
           pokemon.value = cachedForm
 
           const speciesId = await getBaseSpeciesId(cachedForm.name, cachedForm.id)
@@ -488,11 +563,12 @@ export const usePokemonStore = defineStore(
         } else {
           const res = await fetch(form.pokemon.url)
           let data = await res.json()
-          data = applySprites(data)
+          data = await applySprites(data)
           pokemon.value = data
 
           pokemonCache.setPokemon(data.id, data)
           pokemonCache.setMetadata(`fallback_${data.id}`, false)
+          pokemonCache.setMetadata(`sprite_error_level_${data.id}`, 0)
 
           const speciesId = await getBaseSpeciesId(data.name, data.id)
           forms.value = await getSpecies(speciesId)
@@ -511,6 +587,11 @@ export const usePokemonStore = defineStore(
         }
       } catch (error) {
         console.error('Error cargando forma:', error)
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo cargar la forma del Pokémon',
+        })
       } finally {
         isLoading.value = false
         Swal.close()
@@ -549,14 +630,24 @@ export const usePokemonStore = defineStore(
     const handleImageError = (e, notFoundImg) => {
       if (!pokemon.value) return
 
-      const currentFallbackStatus = fallbackSpritesStatus.value[pokemon.value.id] || false
+      const img = e.target
+      const currentLevel = spriteErrorLevel.value[pokemon.value.id] || 0
 
-      if (!currentFallbackStatus && shouldUseShowdown(pokemon.value.name)) {
-        fallbackSpritesStatus.value[pokemon.value.id] = true
-        pokemonCache.setMetadata(`fallback_${pokemon.value.id}`, true)
-        console.log(`🖼️ Activando fallback sprites para ${pokemon.value.name}`)
+      // Evitar loop infinito
+      if (img.src === notFoundImg) return
+
+      console.log(`🖼️ Error cargando sprite para ${pokemon.value.name}, nivel actual: ${currentLevel}`)
+
+      if (currentLevel < 3) {
+        incrementSpriteErrorLevel(pokemon.value.id)
+        // Forzar actualización del sprite
+        const newUrl = currentSprite.value[img.src.includes('back') ? 'back_default' : 'front_default']
+        if (newUrl && newUrl !== img.src) {
+          img.src = newUrl
+        }
       } else {
-        e.target.src = notFoundImg
+        img.src = notFoundImg
+        img.classList.add('image-error')
       }
     }
 
@@ -565,7 +656,9 @@ export const usePokemonStore = defineStore(
         const id = pokemon.value.id
         pokemonCache.removePokemon(id)
         delete fallbackSpritesStatus.value[id]
+        delete spriteErrorLevel.value[id]
         pokemonCache.removeMetadata(`fallback_${id}`)
+        pokemonCache.removeMetadata(`sprite_error_level_${id}`)
         await loadPokemon(id)
       }
     }
@@ -584,6 +677,7 @@ export const usePokemonStore = defineStore(
       prefetchEnabled,
       loadingFromCache,
       fallbackSpritesStatus,
+      spriteErrorLevel,
       activeTimeouts,
       // getters
       stats,
@@ -598,6 +692,8 @@ export const usePokemonStore = defineStore(
       abilities,
       normalAbilities,
       hiddenAbility,
+      currentSpriteErrorLevel,
+      useFallbackSprite,
       // actions
       loadPokemon,
       selectForm,
@@ -606,13 +702,15 @@ export const usePokemonStore = defineStore(
       refreshPokemon,
       togglePrefetch,
       cleanup,
+      incrementSpriteErrorLevel,
+      resetSpriteErrorLevel,
     }
   },
   {
     persist: {
       key: 'pokemon-store',
       storage: localStorage,
-      paths: ['prefetchEnabled', 'fallbackSpritesStatus'],
+      paths: ['prefetchEnabled', 'fallbackSpritesStatus', 'spriteErrorLevel'],
     },
   },
 )

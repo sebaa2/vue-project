@@ -64,13 +64,14 @@ const {
   evolutions,
   movesPokemon,
   isLoading,
-  useFallbackSprite,
   stats,
   formattedTypes,
   currentSprite,
   filteredForms,
   normalAbilities,
   hiddenAbility,
+  useFallbackSprite,
+  currentSpriteErrorLevel,
 } = storeToRefs(pokemonStore)
 
 const {
@@ -86,7 +87,7 @@ const {
 } = storeToRefs(searchStore)
 
 // Store actions
-const { loadPokemon, selectForm, goToEvolution, handleImageError } = pokemonStore
+const { loadPokemon, selectForm, goToEvolution, handleImageError, incrementSpriteErrorLevel, resetSpriteErrorLevel } = pokemonStore
 const {
   setSearchTerm,
   setSelectedType,
@@ -101,6 +102,8 @@ const {
 const isBarChart = ref(true)
 const isShiny = ref(false)
 const activeForm = ref(null)
+const frontSpriteError = ref(false)
+const backSpriteError = ref(false)
 
 let mikuComposable = null
 
@@ -122,6 +125,43 @@ const isGigantamax = computed(() => pokemon.value?.name?.includes('-gmax') || fa
 // Computed para verificar si el Easter Egg debe estar activo
 const isMikuEasterEggActive = computed(() => {
   return pokemon.value && MIKU_POKEMON_IDS.includes(pokemon.value.id)
+})
+
+// URLs de sprites con manejo de errores
+const currentFrontSprite = computed(() => {
+  if (!pokemon.value) return notFound
+  const spriteUrl = isShiny.value 
+    ? currentSprite.value.front_shiny 
+    : currentSprite.value.front_default
+  
+  return spriteUrl || notFound
+})
+
+const currentBackSprite = computed(() => {
+  if (!pokemon.value) return notFound
+  const spriteUrl = isShiny.value 
+    ? currentSprite.value.back_shiny 
+    : currentSprite.value.back_default
+  
+  return spriteUrl || notFound
+})
+
+// Mensaje de nivel de fallback
+const fallbackMessage = computed(() => {
+  const level = currentSpriteErrorLevel.value
+  if (level === 0) return null
+  if (level === 1) return 'Usando sprite estático (animado no disponible)'
+  if (level === 2) return 'Usando artwork oficial'
+  if (level >= 3) return 'Usando sprite básico de respaldo'
+  return null
+})
+
+const fallbackMessageClass = computed(() => {
+  const level = currentSpriteErrorLevel.value
+  if (level === 1) return 'text-yellow-600'
+  if (level === 2) return 'text-orange-600'
+  if (level >= 3) return 'text-red-600'
+  return 'text-gray-500'
 })
 
 // Función para manejar la actualización del ordenamiento desde MoveTable
@@ -258,6 +298,42 @@ const filteredAndSortedMoves = computed(() => {
   return moves
 })
 
+// Manejador de error para sprite frontal
+const onFrontSpriteError = (event) => {
+  if (!pokemon.value) return
+  
+  const img = event.target
+  if (img.src === notFound) return
+  
+  console.log(`❌ Error en sprite frontal de ${pokemon.value.name}`)
+  
+  const currentLevel = currentSpriteErrorLevel.value
+  if (currentLevel < 3) {
+    incrementSpriteErrorLevel(pokemon.value.id)
+  } else {
+    img.src = notFound
+    img.classList.add('image-error')
+  }
+}
+
+// Manejador de error para sprite trasero
+const onBackSpriteError = (event) => {
+  if (!pokemon.value) return
+  
+  const img = event.target
+  if (img.src === notFound) return
+  
+  console.log(`❌ Error en sprite trasero de ${pokemon.value.name}`)
+  
+  const currentLevel = currentSpriteErrorLevel.value
+  if (currentLevel < 3) {
+    incrementSpriteErrorLevel(pokemon.value.id)
+  } else {
+    img.src = notFound
+    img.classList.add('image-error')
+  }
+}
+
 // Función para activar/desactivar el Easter Egg
 const setupMikuEasterEgg = () => {
   if (isMikuEasterEggActive.value && !mikuComposable) {
@@ -271,7 +347,12 @@ const setupMikuEasterEgg = () => {
 
 // Métodos
 const changeChart = () => (isBarChart.value = !isBarChart.value)
-const toggleShiny = () => (isShiny.value = !isShiny.value)
+const toggleShiny = () => {
+  isShiny.value = !isShiny.value
+  // Resetear errores locales al cambiar shiny
+  frontSpriteError.value = false
+  backSpriteError.value = false
+}
 const goToHome = () => router.push('/')
 const handleHiddenButtonClick = () => easterEggStore.triggerSilla()
 
@@ -279,6 +360,10 @@ const handleSelectForm = async (form) => {
   activeForm.value = form.pokemon.name
   await selectForm(form)
   resetFilters()
+  // Resetear shiny al cambiar de forma
+  isShiny.value = false
+  frontSpriteError.value = false
+  backSpriteError.value = false
 }
 
 const formatName = (name) => {
@@ -296,6 +381,9 @@ const formatName = (name) => {
 watch(route, async () => {
   await loadPokemon(route.params.id)
   resetFilters()
+  isShiny.value = false
+  frontSpriteError.value = false
+  backSpriteError.value = false
   await nextTick()
   setupMikuEasterEgg()
 })
@@ -305,6 +393,9 @@ watch(
   () => pokemon.value?.id,
   async () => {
     setupMikuEasterEgg()
+    // Resetear errores locales
+    frontSpriteError.value = false
+    backSpriteError.value = false
     // Precargar nombres de habilidades
     if (normalAbilities.value?.length > 0 || hiddenAbility.value) {
       const allAbilities = [
@@ -334,7 +425,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="isLoading" class="min-h-screen" />
+  <div v-if="isLoading" class="min-h-screen flex items-center justify-center">
+    <div class="text-center">
+      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <p class="mt-4 text-gray-600">Cargando Pokémon...</p>
+    </div>
+  </div>
 
   <div v-else-if="pokemon" class="w-full max-w-6xl mx-auto rounded-xl p-6 md:p-10 shadow-lg">
     <!-- Botón de volver -->
@@ -363,7 +459,7 @@ onUnmounted(() => {
 
     <h1 class="font-black md:text-3xl text-xl text-red-900 mb-2">
       <span>{{ formatPoke(pokemon.name) }}</span>
-      <span class="text-gray-400 text-base font-mono bg-gray-100 px-2 py-1 rounded-md">
+      <span class="text-gray-400 text-base font-mono bg-gray-100 px-2 py-1 rounded-md ml-2">
         #{{ String(pokemon.id).padStart(3, '0') }}
       </span>
     </h1>
@@ -483,30 +579,31 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Sprites -->
+    <!-- Sprites con manejo de errores mejorado -->
     <div class="grid grid-cols-1 sm:grid-cols-2 place-items-center gap-1 mt-4">
       <div class="text-center">
         <img
-          class="w-30"
-          :src="isShiny ? currentSprite.front_shiny : currentSprite.front_default"
-          @error="(e) => handleImageError(e, notFound)"
+          class="w-32 h-32 object-contain"
+          :src="currentFrontSprite"
+          @error="onFrontSpriteError"
           :alt="`${formatPoke(pokemon.name)} frente ${isShiny ? 'shiny' : 'normal'}`"
         />
         <p class="text-sm text-gray-600 mt-2">Frente</p>
       </div>
       <div class="text-center">
         <img
-          class="w-30"
-          :src="isShiny ? currentSprite.back_shiny : currentSprite.back_default"
-          @error="(e) => handleImageError(e, notFound)"
+          class="w-32 h-32 object-contain"
+          :src="currentBackSprite"
+          @error="onBackSpriteError"
           :alt="`${formatPoke(pokemon.name)} espalda ${isShiny ? 'shiny' : 'normal'}`"
         />
         <p class="text-sm text-gray-600 mt-2">Espalda</p>
       </div>
     </div>
 
-    <p v-if="useFallbackSprite" class="text-center mt-2 text-xs text-gray-500">
-      Usando sprite estático (GIF no disponible)
+    <!-- Mensaje de nivel de fallback -->
+    <p v-if="fallbackMessage" class="text-center mt-2 text-xs" :class="fallbackMessageClass">
+      {{ fallbackMessage }}
     </p>
 
     <!-- Formas alternativas -->
@@ -597,14 +694,38 @@ onUnmounted(() => {
   </div>
 
   <div v-else class="min-h-screen flex items-center justify-center">
-    <p class="text-gray-500">Pokémon no encontrado</p>
+    <div class="text-center">
+      <p class="text-gray-500 text-lg">Pokémon no encontrado</p>
+      <button
+        @click="goToHome"
+        class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+      >
+        Volver al inicio
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.image-error {
+  opacity: 0.7;
+  object-fit: contain;
+  padding: 8px;
+  filter: grayscale(0.3);
+}
+
+.ability-button {
+  transition: all 0.2s ease;
+}
+
+.ability-button:active {
+  transform: scale(0.95);
+}
+
 .hidden-button {
   transition: opacity 0.3s;
 }
+
 .hidden-button:hover {
   opacity: 0.2 !important;
 }

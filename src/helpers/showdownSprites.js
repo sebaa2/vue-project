@@ -29,7 +29,7 @@ const NAME_TRANSFORMATIONS = {
   // GEN 5
   'darmanitan-standard': 'darmanitan',
   'darmanitan-galar-zen': 'darmanitan-galarzen',
-  'meloetta-aria' : 'meloetta',
+  'meloetta-aria': 'meloetta',
 
   // GEN 6
   'pyroar-male': 'pyroar',
@@ -239,12 +239,129 @@ const buildSpriteObject = (baseUrl, spriteGetter, name) => ({
   back_shiny: `${baseUrl}${spriteGetter.backShiny(name)}`,
 })
 
+// Cache para IDs de Pokémon (evita llamadas repetidas a la API)
+const pokemonIdCache = new Map()
+const pendingIdRequests = new Map()
+
+/**
+ * Obtiene el ID de un Pokémon por su nombre usando la API de PokeAPI
+ * Con caché y manejo de peticiones concurrentes
+ */
+const getPokemonIdFromName = async (pokemonName) => {
+  const baseName = pokemonName.split('-')[0]
+  
+  // Verificar caché
+  if (pokemonIdCache.has(baseName)) {
+    return pokemonIdCache.get(baseName)
+  }
+
+  // Evitar múltiples peticiones concurrentes para el mismo nombre
+  if (pendingIdRequests.has(baseName)) {
+    return pendingIdRequests.get(baseName)
+  }
+
+  // Crear promesa para esta petición
+  const requestPromise = (async () => {
+    try {
+      // Primero intentar obtener por nombre exacto
+      let response = await fetch(`https://pokeapi.co/api/v2/pokemon/${baseName}`)
+      
+      // Si falla, intentar con el nombre original (para casos como nidoran-f)
+      if (!response.ok && pokemonName !== baseName) {
+        response = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`)
+      }
+      
+      if (response.ok) {
+        const data = await response.json()
+        const id = data.id
+        pokemonIdCache.set(baseName, id)
+        return id
+      }
+      
+      console.warn(`No se pudo obtener ID para: ${baseName}`)
+      return 0
+    } catch (error) {
+      console.error(`Error obteniendo ID para ${baseName}:`, error)
+      return 0
+    } finally {
+      // Limpiar petición pendiente
+      pendingIdRequests.delete(baseName)
+    }
+  })()
+  
+  pendingIdRequests.set(baseName, requestPromise)
+  return requestPromise
+}
+
+/**
+ * Obtiene URLs de artwork oficial para un Pokémon
+ * @param {string} pokemonName - Nombre del Pokémon
+ * @param {number} pokemonId - ID opcional (si ya se conoce)
+ */
+const getOfficialArtworkUrls = async (pokemonName, pokemonId = null) => {
+  const id = pokemonId || await getPokemonIdFromName(pokemonName)
+  
+  if (!id) {
+    // Fallback a URLs genéricas si no hay ID
+    return {
+      front_default: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/0.png`,
+      front_shiny: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/0.png`,
+      back_default: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/0.png`,
+      back_shiny: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/shiny/0.png`,
+    }
+  }
+  
+  return {
+    front_default: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`,
+    front_shiny: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${id}.png`,
+    back_default: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${id}.png`,
+    back_shiny: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/shiny/${id}.png`,
+  }
+}
+
 export const getShowdownSprites = (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
   return buildSpriteObject(SPRITE_URLS.BASE, SPRITE_URLS.ANI, showdownName)
 }
 
-// ✅ CORREGIDO: Sprites especiales para Cherrim Sunshine usando URLs directas de PokeAPI
+export const getShowdownSpritesWithFallback = (pokemonName) => {
+  const showdownName = formatShowdownName(pokemonName)
+  
+  // Versión síncrona para uso inmediato (sin artwork oficial)
+  return {
+    animated: buildSpriteObject(SPRITE_URLS.BASE, SPRITE_URLS.ANI, showdownName),
+    fallback: {
+      front_default: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.front(showdownName)}`,
+      front_shiny: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.frontShiny(showdownName)}`,
+      back_default: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.front(showdownName)}`,
+      back_shiny: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.frontShiny(showdownName)}`,
+    },
+    // Artwork oficial se cargará asíncronamente
+    officialArtwork: null,
+  }
+}
+
+/**
+ * Versión asíncrona que incluye artwork oficial
+ * Útil para precargar o para usar con async/await
+ */
+export const getShowdownSpritesWithArtwork = async (pokemonName) => {
+  const showdownName = formatShowdownName(pokemonName)
+  const officialArtwork = await getOfficialArtworkUrls(pokemonName)
+  
+  return {
+    animated: buildSpriteObject(SPRITE_URLS.BASE, SPRITE_URLS.ANI, showdownName),
+    fallback: {
+      front_default: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.front(showdownName)}`,
+      front_shiny: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.frontShiny(showdownName)}`,
+      back_default: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.front(showdownName)}`,
+      back_shiny: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.frontShiny(showdownName)}`,
+    },
+    officialArtwork,
+  }
+}
+
+// ✅ Sprites especiales para Cherrim Sunshine
 export const CHERRIM_SUNSHINE_SPRITES = {
   front_default: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/421.png',
   front_shiny:
@@ -257,12 +374,11 @@ export const CHERRIM_SUNSHINE_SPRITES = {
 
 // Cache para verificación de sprites
 const spriteCheckCache = new Map()
-const CHECK_TIMEOUT = 5000 // 5 segundos timeout
+const CHECK_TIMEOUT = 5000
 
 const checkSpriteExists = async (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
 
-  // Verificar cache
   if (spriteCheckCache.has(showdownName)) {
     return spriteCheckCache.get(showdownName)
   }
@@ -292,7 +408,6 @@ const verifiedSpritesCache = new Map()
 export const getShowdownSpritesWithCheck = async (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
 
-  // Verificar cache
   if (verifiedSpritesCache.has(showdownName)) {
     return verifiedSpritesCache.get(showdownName)
   }
@@ -307,16 +422,30 @@ export const getShowdownSpritesWithCheck = async (pokemonName) => {
   return sprites
 }
 
-export const getShowdownSpritesWithFallback = (pokemonName) => {
+export const getShowdownSpritesWithAllFallbacks = async (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
+  const [officialArtwork, exists] = await Promise.all([
+    getOfficialArtworkUrls(pokemonName),
+    checkSpriteExists(pokemonName)
+  ])
 
   return {
-    animated: buildSpriteObject(SPRITE_URLS.BASE, SPRITE_URLS.ANI, showdownName),
-    fallback: {
+    animated: exists 
+      ? buildSpriteObject(SPRITE_URLS.BASE, SPRITE_URLS.ANI, showdownName)
+      : buildSpriteObject(SPRITE_URLS.BASE, SPRITE_URLS.GEN5, showdownName),
+    home: {
       front_default: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.front(showdownName)}`,
       front_shiny: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.frontShiny(showdownName)}`,
       back_default: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.front(showdownName)}`,
       back_shiny: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.frontShiny(showdownName)}`,
     },
+    officialArtwork,
   }
+}
+
+// Función para precargar IDs de Pokémon comunes
+export const preloadPokemonIds = async (pokemonNames) => {
+  const uniqueNames = [...new Set(pokemonNames.map(name => name.split('-')[0]))]
+  await Promise.all(uniqueNames.map(name => getPokemonIdFromName(name)))
+  console.log(`📦 Precargados ${uniqueNames.length} IDs de Pokémon`)
 }
