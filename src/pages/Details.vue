@@ -31,24 +31,23 @@ const EEVEE_FAMILY = new Set([
   'sylveon',
   'eevee-gmax',
   'eevee-starter',
-  'vaporeon-gmax',
-  'jolteon-gmax',
-  'flareon-gmax',
-  'espeon-gmax',
-  'umbreon-gmax',
-  'leafeon-gmax',
-  'glaceon-gmax',
-  'sylveon-gmax',
 ])
 
-const MIKU_POKEMON_IDS = [83, 648] // Farfetch'd (83) y Meloetta (648)
+const MIKU_POKEMON_IDS = [83, 648]
 
-// Métodos de aprendizaje disponibles
 const LEARNING_METHODS = {
   'level-up': 'Nivel',
   machine: 'MT/MO',
   egg: 'Huevo',
   tutor: 'Tutor',
+}
+
+// Mapeo de IDs para Mega Evoluciones especiales
+const MEGA_SPECIAL_IDS = {
+  'raichu-mega-x': 10304,
+  'raichu-mega-y': 10305,
+  'absol-mega-z': 10307,
+  'lucario-mega-z': 10310,
 }
 
 // Stores
@@ -66,12 +65,9 @@ const {
   isLoading,
   stats,
   formattedTypes,
-  currentSprite,
   filteredForms,
   normalAbilities,
   hiddenAbility,
-  useFallbackSprite,
-  currentSpriteErrorLevel,
 } = storeToRefs(pokemonStore)
 
 const {
@@ -87,7 +83,7 @@ const {
 } = storeToRefs(searchStore)
 
 // Store actions
-const { loadPokemon, selectForm, goToEvolution, handleImageError, incrementSpriteErrorLevel, resetSpriteErrorLevel } = pokemonStore
+const { loadPokemon, selectForm, goToEvolution } = pokemonStore
 const {
   setSearchTerm,
   setSelectedType,
@@ -102,8 +98,6 @@ const {
 const isBarChart = ref(true)
 const isShiny = ref(false)
 const activeForm = ref(null)
-const frontSpriteError = ref(false)
-const backSpriteError = ref(false)
 
 let mikuComposable = null
 
@@ -113,7 +107,6 @@ const {
   loadingAbility,
   abilityNames,
   toggleAbility,
-  getCachedAbilityName,
   preloadAbilityNames,
   setupClickOutside,
   cleanupClickOutside,
@@ -122,217 +115,121 @@ const {
 // Computed
 const isGigantamax = computed(() => pokemon.value?.name?.includes('-gmax') || false)
 
-// Computed para verificar si el Easter Egg debe estar activo
 const isMikuEasterEggActive = computed(() => {
   return pokemon.value && MIKU_POKEMON_IDS.includes(pokemon.value.id)
 })
 
-// URLs de sprites con manejo de errores
-const currentFrontSprite = computed(() => {
+// Función para obtener el ID de artwork correcto (especial para Mega Z)
+const getArtworkId = (pokemonName, defaultId) => {
+  // Verificar si es una Mega especial
+  if (MEGA_SPECIAL_IDS[pokemonName]) {
+    console.log(`🎨 Usando ID especial para ${pokemonName}: ${MEGA_SPECIAL_IDS[pokemonName]}`)
+    return MEGA_SPECIAL_IDS[pokemonName]
+  }
+  return defaultId
+}
+
+// Función para obtener la URL del artwork oficial
+const getOfficialArtworkUrl = (pokemonName, pokemonId, isShinyValue = false) => {
+  const artworkId = getArtworkId(pokemonName, pokemonId)
+  if (!artworkId) return null
+
+  if (isShinyValue) {
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${artworkId}.png`
+  }
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${artworkId}.png`
+}
+
+// Función para obtener la URL del sprite básico de PokeAPI
+const getBasicSpriteUrl = (pokemonName, pokemonId, isShinyValue = false, isBack = false) => {
+  const artworkId = getArtworkId(pokemonName, pokemonId)
+  if (!artworkId) return null
+
+  if (isBack) {
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${isShinyValue ? 'shiny/' : ''}${artworkId}.png`
+  }
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${isShinyValue ? 'shiny/' : ''}${artworkId}.png`
+}
+
+// URLs de sprites con múltiples niveles de fallback
+const getSpriteUrl = (type, isShinyValue = false) => {
   if (!pokemon.value) return notFound
-  const spriteUrl = isShiny.value 
-    ? currentSprite.value.front_shiny 
-    : currentSprite.value.front_default
-  
-  return spriteUrl || notFound
-})
 
-const currentBackSprite = computed(() => {
-  if (!pokemon.value) return notFound
-  const spriteUrl = isShiny.value 
-    ? currentSprite.value.back_shiny 
-    : currentSprite.value.back_default
-  
-  return spriteUrl || notFound
-})
+  const pokemonName = pokemon.value.name
+  const pokemonId = pokemon.value.id
 
-// Mensaje de nivel de fallback
-const fallbackMessage = computed(() => {
-  const level = currentSpriteErrorLevel.value
-  if (level === 0) return null
-  if (level === 1) return 'Usando sprite estático (animado no disponible)'
-  if (level === 2) return 'Usando artwork oficial'
-  if (level >= 3) return 'Usando sprite básico de respaldo'
-  return null
-})
+  // Nivel 1: Sprite de Showdown (si existe en el store)
+  const showdownSprite = isShinyValue
+    ? pokemon.value.sprites?.[type === 'front' ? 'front_shiny' : 'back_shiny']
+    : pokemon.value.sprites?.[type === 'front' ? 'front_default' : 'back_default']
 
-const fallbackMessageClass = computed(() => {
-  const level = currentSpriteErrorLevel.value
-  if (level === 1) return 'text-yellow-600'
-  if (level === 2) return 'text-orange-600'
-  if (level >= 3) return 'text-red-600'
-  return 'text-gray-500'
-})
-
-// Función para manejar la actualización del ordenamiento desde MoveTable
-const handleUpdateSort = (sortData) => {
-  const { sortBy: newSortBy, sortOrder: newSortOrder } = sortData
-
-  // Si es null, resetear ordenamiento
-  if (newSortBy === null) {
-    setSortBy(null)
-    return
+  if (showdownSprite && !showdownSprite.includes('undefined')) {
+    console.log(`🎨 Usando sprite Showdown para ${pokemonName}: ${showdownSprite}`)
+    return showdownSprite
   }
 
-  // Si el ordenamiento es por nivel
-  if (newSortBy === 'level') {
-    setSortBy('level')
-    if (sortOrder.value !== newSortOrder) {
-      toggleSortOrder()
+  // Nivel 2: Artwork oficial (con ID especial para Mega Z)
+  const artworkUrl = getOfficialArtworkUrl(pokemonName, pokemonId, isShinyValue)
+  if (artworkUrl) {
+    console.log(`🎨 Usando artwork oficial para ${pokemonName}: ${artworkUrl}`)
+    return artworkUrl
+  }
+
+  // Nivel 3: Sprite básico de PokeAPI
+  const basicUrl = getBasicSpriteUrl(pokemonName, pokemonId, isShinyValue, type === 'back')
+  if (basicUrl) {
+    console.log(`🎨 Usando sprite básico para ${pokemonName}: ${basicUrl}`)
+    return basicUrl
+  }
+
+  return notFound
+}
+
+const frontSpriteUrl = computed(() => getSpriteUrl('front', isShiny.value))
+const backSpriteUrl = computed(() => getSpriteUrl('back', isShiny.value))
+
+// Fallback cuando la imagen falla
+const handleImageError = (event, type) => {
+  const img = event.target
+  if (!pokemon.value) return
+  if (img.src === notFound) return
+
+  const pokemonName = pokemon.value.name
+  const pokemonId = pokemon.value.id
+
+  console.log(`⚠️ Error cargando imagen para ${pokemonName}, tipo: ${type}`)
+
+  // Intentar con el siguiente nivel de fallback
+  let newUrl = null
+
+  if (img.src.includes('showdown') || img.src.includes('play.pokemonshowdown')) {
+    // Fallback a artwork oficial
+    newUrl = getOfficialArtworkUrl(pokemonName, pokemonId, isShiny.value)
+    if (newUrl) {
+      console.log(`🔄 Fallback a artwork oficial: ${newUrl}`)
+      img.src = newUrl
+      return
     }
-    return
   }
 
-  // Para otros campos
-  setSortBy(newSortBy)
-  if (sortOrder.value !== newSortOrder) {
-    toggleSortOrder()
+  if (img.src.includes('official-artwork')) {
+    // Fallback a sprite básico
+    newUrl = getBasicSpriteUrl(pokemonName, pokemonId, isShiny.value, type === 'back')
+    if (newUrl) {
+      console.log(`🔄 Fallback a sprite básico: ${newUrl}`)
+      img.src = newUrl
+      return
+    }
   }
+
+  // Último recurso: notFound
+  console.log(`❌ Todos los fallbacks fallaron para ${pokemonName}`)
+  img.src = notFound
+  img.classList.add('image-error')
 }
 
-// Opciones de tipos para los filtros (usando arrayTipo.js)
-const tipoOptions = computed(() => {
-  const uniqueTypes = [...new Set(movesPokemon.value.map((move) => move.type))]
-  const allTypesOptions = getTiposOptions()
-  const availableTypes = allTypesOptions.filter((option) => uniqueTypes.includes(option.value))
-  return [{ value: 'all', label: 'Todos los tipos' }, ...availableTypes]
-})
-
-// Opciones de categorías para los filtros (usando arrayTipo.js)
-const categoriaOptions = computed(() => {
-  const uniqueCats = [...new Set(movesPokemon.value.map((move) => move.category))]
-  const allCategoriesOptions = getCategoriasOptions()
-  const availableCategories = allCategoriesOptions.filter((option) =>
-    uniqueCats.includes(option.value),
-  )
-  return [{ value: 'all', label: 'Todas las categorías' }, ...availableCategories]
-})
-
-// Opciones de métodos de aprendizaje
-const methodOptions = computed(() => {
-  const uniqueMethods = [...new Set(movesPokemon.value.map((move) => move.learnMethod))]
-  const options = uniqueMethods
-    .filter((method) => LEARNING_METHODS[method])
-    .map((method) => ({
-      value: method,
-      label: LEARNING_METHODS[method],
-    }))
-  return [{ value: 'all', label: 'Todos los métodos' }, ...options]
-})
-
-// Computed para filtrar y ordenar los movimientos
-const filteredAndSortedMoves = computed(() => {
-  let moves = [...movesPokemon.value]
-  const searchValue = searchTermDebounced.value?.toLowerCase()
-
-  // Filtro por búsqueda
-  if (searchValue) {
-    moves = moves.filter(
-      (move) =>
-        move.name.toLowerCase().includes(searchValue) ||
-        move.effect?.toLowerCase().includes(searchValue),
-    )
-  }
-
-  // Filtro por tipo
-  if (selectedType.value !== 'all') {
-    moves = moves.filter((move) => move.type === selectedType.value)
-  }
-
-  // Filtro por categoría
-  if (selectedCategory.value !== 'all') {
-    moves = moves.filter((move) => move.category === selectedCategory.value)
-  }
-
-  // Filtro por método
-  if (selectedMethod.value !== 'all') {
-    moves = moves.filter((move) => move.learnMethod === selectedMethod.value)
-  }
-
-  // Ordenamiento por nivel (especial para level-up)
-  if (sortBy.value === 'level') {
-    return moves.sort((a, b) => {
-      // Los movimientos que no tienen nivel (como MT, huevo, tutor) van al final
-      const levelA =
-        a.levelLearnedAt !== undefined && a.levelLearnedAt !== null ? a.levelLearnedAt : Infinity
-      const levelB =
-        b.levelLearnedAt !== undefined && b.levelLearnedAt !== null ? b.levelLearnedAt : Infinity
-      return sortOrder.value === 'asc' ? levelA - levelB : levelB - levelA
-    })
-  }
-
-  // Ordenamiento existente para otros campos
-  if (sortBy.value && sortBy.value !== null) {
-    return moves.sort((a, b) => {
-      let aVal = a[sortBy.value]
-      let bVal = b[sortBy.value]
-
-      // Manejar valores nulos o indefinidos
-      if (aVal === null || aVal === undefined || aVal === '-') {
-        aVal = sortBy.value === 'name' ? 'zzz' : -Infinity
-      }
-      if (bVal === null || bVal === undefined || bVal === '-') {
-        bVal = sortBy.value === 'name' ? 'zzz' : -Infinity
-      }
-
-      // Ordenamiento por nombre (alfabético)
-      if (sortBy.value === 'name') {
-        aVal = String(aVal).toLowerCase()
-        bVal = String(bVal).toLowerCase()
-        if (sortOrder.value === 'asc') {
-          return aVal.localeCompare(bVal)
-        } else {
-          return bVal.localeCompare(aVal)
-        }
-      }
-
-      // Ordenamiento por valores numéricos
-      if (sortOrder.value === 'asc') {
-        return aVal - bVal
-      } else {
-        return bVal - aVal
-      }
-    })
-  }
-
-  return moves
-})
-
-// Manejador de error para sprite frontal
-const onFrontSpriteError = (event) => {
-  if (!pokemon.value) return
-  
-  const img = event.target
-  if (img.src === notFound) return
-  
-  console.log(`❌ Error en sprite frontal de ${pokemon.value.name}`)
-  
-  const currentLevel = currentSpriteErrorLevel.value
-  if (currentLevel < 3) {
-    incrementSpriteErrorLevel(pokemon.value.id)
-  } else {
-    img.src = notFound
-    img.classList.add('image-error')
-  }
-}
-
-// Manejador de error para sprite trasero
-const onBackSpriteError = (event) => {
-  if (!pokemon.value) return
-  
-  const img = event.target
-  if (img.src === notFound) return
-  
-  console.log(`❌ Error en sprite trasero de ${pokemon.value.name}`)
-  
-  const currentLevel = currentSpriteErrorLevel.value
-  if (currentLevel < 3) {
-    incrementSpriteErrorLevel(pokemon.value.id)
-  } else {
-    img.src = notFound
-    img.classList.add('image-error')
-  }
-}
+const handleFrontError = (event) => handleImageError(event, 'front')
+const handleBackError = (event) => handleImageError(event, 'back')
 
 // Función para activar/desactivar el Easter Egg
 const setupMikuEasterEgg = () => {
@@ -349,9 +246,6 @@ const setupMikuEasterEgg = () => {
 const changeChart = () => (isBarChart.value = !isBarChart.value)
 const toggleShiny = () => {
   isShiny.value = !isShiny.value
-  // Resetear errores locales al cambiar shiny
-  frontSpriteError.value = false
-  backSpriteError.value = false
 }
 const goToHome = () => router.push('/')
 const handleHiddenButtonClick = () => easterEggStore.triggerSilla()
@@ -360,10 +254,7 @@ const handleSelectForm = async (form) => {
   activeForm.value = form.pokemon.name
   await selectForm(form)
   resetFilters()
-  // Resetear shiny al cambiar de forma
   isShiny.value = false
-  frontSpriteError.value = false
-  backSpriteError.value = false
 }
 
 const formatName = (name) => {
@@ -377,13 +268,128 @@ const formatName = (name) => {
     .join(' ')
 }
 
+const handleUpdateSort = (sortData) => {
+  const { sortBy: newSortBy, sortOrder: newSortOrder } = sortData
+
+  if (newSortBy === null) {
+    setSortBy(null)
+    return
+  }
+
+  if (newSortBy === 'level') {
+    setSortBy('level')
+    if (sortOrder.value !== newSortOrder) {
+      toggleSortOrder()
+    }
+    return
+  }
+
+  setSortBy(newSortBy)
+  if (sortOrder.value !== newSortOrder) {
+    toggleSortOrder()
+  }
+}
+
+// Opciones de filtros
+const tipoOptions = computed(() => {
+  const uniqueTypes = [...new Set(movesPokemon.value.map((move) => move.type))]
+  const allTypesOptions = getTiposOptions()
+  const availableTypes = allTypesOptions.filter((option) => uniqueTypes.includes(option.value))
+  return [{ value: 'all', label: 'Todos los tipos' }, ...availableTypes]
+})
+
+const categoriaOptions = computed(() => {
+  const uniqueCats = [...new Set(movesPokemon.value.map((move) => move.category))]
+  const allCategoriesOptions = getCategoriasOptions()
+  const availableCategories = allCategoriesOptions.filter((option) =>
+    uniqueCats.includes(option.value),
+  )
+  return [{ value: 'all', label: 'Todas las categorías' }, ...availableCategories]
+})
+
+const methodOptions = computed(() => {
+  const uniqueMethods = [...new Set(movesPokemon.value.map((move) => move.learnMethod))]
+  const options = uniqueMethods
+    .filter((method) => LEARNING_METHODS[method])
+    .map((method) => ({
+      value: method,
+      label: LEARNING_METHODS[method],
+    }))
+  return [{ value: 'all', label: 'Todos los métodos' }, ...options]
+})
+
+const filteredAndSortedMoves = computed(() => {
+  let moves = [...movesPokemon.value]
+  const searchValue = searchTermDebounced.value?.toLowerCase()
+
+  if (searchValue) {
+    moves = moves.filter(
+      (move) =>
+        move.name.toLowerCase().includes(searchValue) ||
+        move.effect?.toLowerCase().includes(searchValue),
+    )
+  }
+
+  if (selectedType.value !== 'all') {
+    moves = moves.filter((move) => move.type === selectedType.value)
+  }
+
+  if (selectedCategory.value !== 'all') {
+    moves = moves.filter((move) => move.category === selectedCategory.value)
+  }
+
+  if (selectedMethod.value !== 'all') {
+    moves = moves.filter((move) => move.learnMethod === selectedMethod.value)
+  }
+
+  if (sortBy.value === 'level') {
+    return moves.sort((a, b) => {
+      const levelA =
+        a.levelLearnedAt !== undefined && a.levelLearnedAt !== null ? a.levelLearnedAt : Infinity
+      const levelB =
+        b.levelLearnedAt !== undefined && b.levelLearnedAt !== null ? b.levelLearnedAt : Infinity
+      return sortOrder.value === 'asc' ? levelA - levelB : levelB - levelA
+    })
+  }
+
+  if (sortBy.value && sortBy.value !== null) {
+    return moves.sort((a, b) => {
+      let aVal = a[sortBy.value]
+      let bVal = b[sortBy.value]
+
+      if (aVal === null || aVal === undefined || aVal === '-') {
+        aVal = sortBy.value === 'name' ? 'zzz' : -Infinity
+      }
+      if (bVal === null || bVal === undefined || bVal === '-') {
+        bVal = sortBy.value === 'name' ? 'zzz' : -Infinity
+      }
+
+      if (sortBy.value === 'name') {
+        aVal = String(aVal).toLowerCase()
+        bVal = String(bVal).toLowerCase()
+        if (sortOrder.value === 'asc') {
+          return aVal.localeCompare(bVal)
+        } else {
+          return bVal.localeCompare(aVal)
+        }
+      }
+
+      if (sortOrder.value === 'asc') {
+        return aVal - bVal
+      } else {
+        return bVal - aVal
+      }
+    })
+  }
+
+  return moves
+})
+
 // Watch para cambios de ruta
 watch(route, async () => {
   await loadPokemon(route.params.id)
   resetFilters()
   isShiny.value = false
-  frontSpriteError.value = false
-  backSpriteError.value = false
   await nextTick()
   setupMikuEasterEgg()
 })
@@ -393,10 +399,6 @@ watch(
   () => pokemon.value?.id,
   async () => {
     setupMikuEasterEgg()
-    // Resetear errores locales
-    frontSpriteError.value = false
-    backSpriteError.value = false
-    // Precargar nombres de habilidades
     if (normalAbilities.value?.length > 0 || hiddenAbility.value) {
       const allAbilities = [
         ...(normalAbilities.value || []),
@@ -427,7 +429,9 @@ onUnmounted(() => {
 <template>
   <div v-if="isLoading" class="min-h-screen flex items-center justify-center">
     <div class="text-center">
-      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div
+        class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"
+      ></div>
       <p class="mt-4 text-gray-600">Cargando Pokémon...</p>
     </div>
   </div>
@@ -504,12 +508,11 @@ onUnmounted(() => {
     <div class="mt-4">
       <h2 class="text-lg font-semibold text-gray-700 mb-2">Habilidades</h2>
       <div class="flex flex-wrap items-center gap-2">
-        <!-- Habilidades normales -->
         <button
           v-for="ability in normalAbilities"
           :key="ability.ability.name"
           @click.stop="toggleAbility(ability)"
-          class="ability-button px-3 py-1 bg-gray-600 text-white text-sm font-medium rounded-full shadow-sm hover:bg-gray-700 hover:scale-105 transition-all duration-200 cursor-pointer"
+          class="px-3 py-1 bg-gray-600 text-white text-sm font-medium rounded-full shadow-sm hover:bg-gray-700 hover:scale-105 transition-all duration-200 cursor-pointer"
           :class="{
             'ring-2 ring-blue-400 ring-offset-2': selectedAbility?.name === ability.ability.name,
           }"
@@ -517,11 +520,10 @@ onUnmounted(() => {
           {{ abilityNames[ability.ability.name] || formatName(ability.ability.name) }}
         </button>
 
-        <!-- Habilidad oculta -->
         <button
           v-if="hiddenAbility"
           @click.stop="toggleAbility(hiddenAbility)"
-          class="ability-button px-3 py-1 bg-amber-500 text-white text-sm font-medium rounded-full shadow-sm inline-flex items-center gap-1 hover:bg-amber-600 hover:scale-105 transition-all duration-200 cursor-pointer"
+          class="px-3 py-1 bg-amber-500 text-white text-sm font-medium rounded-full shadow-sm inline-flex items-center gap-1 hover:bg-amber-600 hover:scale-105 transition-all duration-200 cursor-pointer"
           :class="{
             'ring-2 ring-blue-400 ring-offset-2':
               selectedAbility?.name === hiddenAbility.ability.name,
@@ -532,7 +534,6 @@ onUnmounted(() => {
           {{ abilityNames[hiddenAbility.ability.name] || formatName(hiddenAbility.ability.name) }}
         </button>
 
-        <!-- Mensaje si no hay habilidad oculta -->
         <span
           v-else
           class="px-3 py-1 bg-gray-300 text-gray-500 text-sm font-medium rounded-full shadow-sm"
@@ -541,10 +542,9 @@ onUnmounted(() => {
         </span>
       </div>
 
-      <!-- Descripción desplegada -->
       <div
         v-if="selectedAbility"
-        class="ability-description mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm transition-all"
+        class="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm transition-all"
       >
         <div class="flex justify-between items-start mb-2">
           <div>
@@ -579,46 +579,41 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Sprites con manejo de errores mejorado -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 place-items-center gap-1 mt-4">
+    <!-- Sprites -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 place-items-center gap-4 mt-6">
       <div class="text-center">
         <img
-          class="w-32 h-32 object-contain"
-          :src="currentFrontSprite"
-          @error="onFrontSpriteError"
+          class="w-40 h-40 object-contain"
+          :src="frontSpriteUrl"
+          @error="handleFrontError"
           :alt="`${formatPoke(pokemon.name)} frente ${isShiny ? 'shiny' : 'normal'}`"
         />
         <p class="text-sm text-gray-600 mt-2">Frente</p>
       </div>
       <div class="text-center">
         <img
-          class="w-32 h-32 object-contain"
-          :src="currentBackSprite"
-          @error="onBackSpriteError"
+          class="w-40 h-40 object-contain"
+          :src="backSpriteUrl"
+          @error="handleBackError"
           :alt="`${formatPoke(pokemon.name)} espalda ${isShiny ? 'shiny' : 'normal'}`"
         />
         <p class="text-sm text-gray-600 mt-2">Espalda</p>
       </div>
     </div>
 
-    <!-- Mensaje de nivel de fallback -->
-    <p v-if="fallbackMessage" class="text-center mt-2 text-xs" :class="fallbackMessageClass">
-      {{ fallbackMessage }}
-    </p>
-
     <!-- Formas alternativas -->
-    <div v-if="filteredForms.length > 1" class="mt-4 text-center">
+    <div v-if="filteredForms.length > 1" class="mt-6 text-center">
       <h2 class="text-lg sm:text-xl md:text-2xl font-bold">Formas</h2>
-      <div class="flex flex-wrap justify-center gap-1 sm:gap-2 md:gap-3 mt-2">
+      <div class="flex flex-wrap justify-center gap-2 mt-3">
         <button
           v-for="form in filteredForms"
           :key="form.pokemon.name"
           @click="handleSelectForm(form)"
           :class="[
-            'px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm md:px-4 md:py-2 md:text-sm font-medium rounded-lg shadow transition-all duration-200 focus:outline-none focus:ring-2',
+            'px-3 py-1.5 text-sm font-medium rounded-lg shadow transition-all duration-200',
             activeForm === form.pokemon.name
-              ? 'bg-blue-700 text-white scale-105 ring-blue-400'
-              : 'bg-gradient-to-r from-blue-400 to-blue-600 text-white hover:from-blue-500 hover:to-blue-700 hover:scale-105 active:scale-95',
+              ? 'bg-blue-700 text-white scale-105 ring-2 ring-blue-400'
+              : 'bg-gradient-to-r from-blue-400 to-blue-600 text-white hover:from-blue-500 hover:to-blue-700 hover:scale-105',
           ]"
         >
           {{ formatName(form.pokemon.name) }}
@@ -644,7 +639,7 @@ onUnmounted(() => {
     <div class="mt-8">
       <button
         @click="changeChart"
-        class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 mb-4 transition-colors"
+        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 mb-4 transition-colors"
       >
         {{ isBarChart ? 'Ver Radar' : 'Ver Barras' }}
       </button>
@@ -652,15 +647,14 @@ onUnmounted(() => {
         v-if="formattedTypes.length"
         :class="[
           isBarChart ? formattedTypes[0].color : '',
-          'w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto rounded shadow-lg',
-          { 'flex justify-center items-center': !isBarChart },
+          'w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl mx-auto rounded-lg shadow-lg p-4',
         ]"
       >
         <component :is="isBarChart ? BarChar : RadarChar" :stats="stats" />
       </div>
     </div>
 
-    <!-- Sección de movimientos modularizada -->
+    <!-- Sección de movimientos -->
     <div v-if="!isGigantamax" class="mt-8">
       <MoveTable
         :moves="filteredAndSortedMoves"
@@ -712,21 +706,5 @@ onUnmounted(() => {
   object-fit: contain;
   padding: 8px;
   filter: grayscale(0.3);
-}
-
-.ability-button {
-  transition: all 0.2s ease;
-}
-
-.ability-button:active {
-  transform: scale(0.95);
-}
-
-.hidden-button {
-  transition: opacity 0.3s;
-}
-
-.hidden-button:hover {
-  opacity: 0.2 !important;
 }
 </style>

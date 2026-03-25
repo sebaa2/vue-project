@@ -61,32 +61,26 @@ const NAME_TRANSFORMATIONS = {
 
 // Patrones de transformación para casos dinámicos
 const TRANSFORMATION_PATTERNS = [
-  // Minior meteor forms
   {
     pattern: /^minior-.+-meteor$/,
     transform: (name) => name.replace('-meteor', ''),
   },
-  // Pikachu cap forms
   {
     pattern: /^pikachu-.+-cap$/,
     transform: (name) => name.replace('-cap', ''),
   },
-  // Incarnate forms
   {
     pattern: /-incarnate$/,
     transform: (name) => name.replace('-incarnate', ''),
   },
-  // Gender forms
   {
     pattern: /-(male|female)$/,
     transform: (name) => name.replace(/-male$/, '').replace(/-female$/, '-f'),
   },
-  // Ogerpon masks
   {
     pattern: /^ogerpon-.+-mask$/,
     transform: (name) => name.replace('-mask', ''),
   },
-  // Squawkabilly plumage
   {
     pattern: /^squawkabilly-.+-plumage$/,
     transform: (name) => {
@@ -94,7 +88,6 @@ const TRANSFORMATION_PATTERNS = [
       return color === 'green' ? 'squawkabilly' : `squawkabilly-${color}`
     },
   },
-  // Tauros Paldea
   {
     pattern: /^tauros-paldea-/,
     transform: (name) => {
@@ -104,31 +97,35 @@ const TRANSFORMATION_PATTERNS = [
   },
 ]
 
+// Mapeo específico para las Mega Evoluciones que necesitas
+const MEGA_SPECIAL_IDS = {
+  'raichu-mega-x': 10304,
+  'raichu-mega-y': 10305,
+  'absol-mega-z': 10307,
+  'lucario-mega-z': 10310,
+}
+
 // Cache para nombres formateados
 const formattedNameCache = new Map()
 
 export const formatShowdownName = (pokemonName) => {
-  // Verificar cache
   if (formattedNameCache.has(pokemonName)) {
     return formattedNameCache.get(pokemonName)
   }
 
   let result = pokemonName
 
-  // Preservar Pokémon que contienen 'mega' pero no son mega evoluciones
   if (POKEMON_WITH_MEGA_IN_NAME.has(pokemonName)) {
     formattedNameCache.set(pokemonName, result)
     return result
   }
 
-  // Transformaciones directas
   if (NAME_TRANSFORMATIONS[pokemonName]) {
     result = NAME_TRANSFORMATIONS[pokemonName]
     formattedNameCache.set(pokemonName, result)
     return result
   }
 
-  // Transformaciones con patrones
   for (const { pattern, transform } of TRANSFORMATION_PATTERNS) {
     if (pattern.test(pokemonName)) {
       result = transform(pokemonName)
@@ -137,14 +134,12 @@ export const formatShowdownName = (pokemonName) => {
     }
   }
 
-  // Urshifu
   if (pokemonName.startsWith('urshifu-')) {
     result = pokemonName.replace('-single-strike', '').replace('-rapid-strike', '-rapidstrike')
     formattedNameCache.set(pokemonName, result)
     return result
   }
 
-  // Toxtricity
   if (pokemonName.startsWith('toxtricity')) {
     if (pokemonName.endsWith('-gmax')) {
       result = 'toxtricity-gmax'
@@ -155,7 +150,6 @@ export const formatShowdownName = (pokemonName) => {
     return result
   }
 
-  // Paradox Pokémon
   if (paradoxPokemon.includes(pokemonName)) {
     result = pokemonName.startsWith('iron-')
       ? pokemonName.replace('iron-', 'iron').replace(/-/g, '')
@@ -164,39 +158,38 @@ export const formatShowdownName = (pokemonName) => {
     return result
   }
 
-  // Hyphen general
   if (hyphenPokemon.includes(pokemonName)) {
     result = pokemonName.replace(/-/g, '')
     formattedNameCache.set(pokemonName, result)
     return result
   }
 
-  // Mega forms
   if (DUAL_MEGA_FORMS.has(pokemonName)) {
     result = pokemonName.replace('-mega-', '-mega')
     formattedNameCache.set(pokemonName, result)
     return result
   }
 
-  // Default
   formattedNameCache.set(pokemonName, result)
   return result
 }
 
 export const shouldUseShowdown = (pokemonName) => {
-  // Pokémon que tienen 'mega' en su nombre pero no son mega evoluciones
   if (POKEMON_WITH_MEGA_IN_NAME.has(pokemonName)) {
     return true
   }
 
-  // Cherrim sunshine siempre usa Showdown
   if (pokemonName === 'cherrim-sunshine') return true
 
-  // Todos los mega Pokémon usan Showdown
   if (pokemonName.endsWith('-mega')) return true
   if (DUAL_MEGA_FORMS.has(pokemonName)) return true
 
-  // Excluir mega evoluciones mal formateadas
+  // Las Mega Z también usan Showdown
+  if (pokemonName === 'lucario-mega-z') return true
+  if (pokemonName === 'absol-mega-z') return true
+  if (pokemonName === 'raichu-mega-x') return true
+  if (pokemonName === 'raichu-mega-y') return true
+
   if (
     pokemonName.includes('mega') &&
     !POKEMON_WITH_MEGA_IN_NAME.has(pokemonName) &&
@@ -207,7 +200,6 @@ export const shouldUseShowdown = (pokemonName) => {
     return false
   }
 
-  // Todos los demás usan Showdown
   return true
 }
 
@@ -239,78 +231,36 @@ const buildSpriteObject = (baseUrl, spriteGetter, name) => ({
   back_shiny: `${baseUrl}${spriteGetter.backShiny(name)}`,
 })
 
-// Cache para IDs de Pokémon (evita llamadas repetidas a la API)
-const pokemonIdCache = new Map()
-const pendingIdRequests = new Map()
-
-/**
- * Obtiene el ID de un Pokémon por su nombre usando la API de PokeAPI
- * Con caché y manejo de peticiones concurrentes
- */
-const getPokemonIdFromName = async (pokemonName) => {
-  const baseName = pokemonName.split('-')[0]
-  
-  // Verificar caché
-  if (pokemonIdCache.has(baseName)) {
-    return pokemonIdCache.get(baseName)
-  }
-
-  // Evitar múltiples peticiones concurrentes para el mismo nombre
-  if (pendingIdRequests.has(baseName)) {
-    return pendingIdRequests.get(baseName)
-  }
-
-  // Crear promesa para esta petición
-  const requestPromise = (async () => {
-    try {
-      // Primero intentar obtener por nombre exacto
-      let response = await fetch(`https://pokeapi.co/api/v2/pokemon/${baseName}`)
-      
-      // Si falla, intentar con el nombre original (para casos como nidoran-f)
-      if (!response.ok && pokemonName !== baseName) {
-        response = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`)
-      }
-      
-      if (response.ok) {
-        const data = await response.json()
-        const id = data.id
-        pokemonIdCache.set(baseName, id)
-        return id
-      }
-      
-      console.warn(`No se pudo obtener ID para: ${baseName}`)
-      return 0
-    } catch (error) {
-      console.error(`Error obteniendo ID para ${baseName}:`, error)
-      return 0
-    } finally {
-      // Limpiar petición pendiente
-      pendingIdRequests.delete(baseName)
-    }
-  })()
-  
-  pendingIdRequests.set(baseName, requestPromise)
-  return requestPromise
+// Función para obtener el ID de artwork para Mega Evoluciones especiales
+const getMegaArtworkId = (pokemonName) => {
+  return MEGA_SPECIAL_IDS[pokemonName] || null
 }
 
-/**
- * Obtiene URLs de artwork oficial para un Pokémon
- * @param {string} pokemonName - Nombre del Pokémon
- * @param {number} pokemonId - ID opcional (si ya se conoce)
- */
-const getOfficialArtworkUrls = async (pokemonName, pokemonId = null) => {
-  const id = pokemonId || await getPokemonIdFromName(pokemonName)
-  
-  if (!id) {
-    // Fallback a URLs genéricas si no hay ID
+// Función para obtener URLs de artwork oficial
+const getOfficialArtworkUrls = (pokemonName, pokemonId = null) => {
+  // Primero verificar si es una Mega especial con ID propio
+  const megaId = getMegaArtworkId(pokemonName)
+  if (megaId) {
+    console.log(`🎨 Usando ID especial para ${pokemonName}: ${megaId}`)
     return {
-      front_default: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/0.png`,
-      front_shiny: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/0.png`,
-      back_default: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/0.png`,
-      back_shiny: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/shiny/0.png`,
+      front_default: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${megaId}.png`,
+      front_shiny: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${megaId}.png`,
+      back_default: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${megaId}.png`,
+      back_shiny: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/shiny/${megaId}.png`,
     }
   }
-  
+
+  // Para Mega normales, usar el ID base del Pokémon
+  const id = pokemonId || 0
+  if (!id) {
+    return {
+      front_default: null,
+      front_shiny: null,
+      back_default: null,
+      back_shiny: null,
+    }
+  }
+
   return {
     front_default: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`,
     front_shiny: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${id}.png`,
@@ -326,8 +276,7 @@ export const getShowdownSprites = (pokemonName) => {
 
 export const getShowdownSpritesWithFallback = (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
-  
-  // Versión síncrona para uso inmediato (sin artwork oficial)
+
   return {
     animated: buildSpriteObject(SPRITE_URLS.BASE, SPRITE_URLS.ANI, showdownName),
     fallback: {
@@ -336,19 +285,18 @@ export const getShowdownSpritesWithFallback = (pokemonName) => {
       back_default: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.front(showdownName)}`,
       back_shiny: `${SPRITE_URLS.BASE}${SPRITE_URLS.HOME.frontShiny(showdownName)}`,
     },
-    // Artwork oficial se cargará asíncronamente
     officialArtwork: null,
   }
 }
 
-/**
- * Versión asíncrona que incluye artwork oficial
- * Útil para precargar o para usar con async/await
- */
 export const getShowdownSpritesWithArtwork = async (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
-  const officialArtwork = await getOfficialArtworkUrls(pokemonName)
-  
+
+  // Para las Mega especiales, obtener artwork con IDs específicos
+  const officialArtwork = getOfficialArtworkUrls(pokemonName)
+
+  console.log(`🎨 Artwork para ${pokemonName}:`, officialArtwork.front_default)
+
   return {
     animated: buildSpriteObject(SPRITE_URLS.BASE, SPRITE_URLS.ANI, showdownName),
     fallback: {
@@ -402,7 +350,6 @@ const checkSpriteExists = async (pokemonName) => {
   }
 }
 
-// Cache para sprites verificados
 const verifiedSpritesCache = new Map()
 
 export const getShowdownSpritesWithCheck = async (pokemonName) => {
@@ -424,13 +371,11 @@ export const getShowdownSpritesWithCheck = async (pokemonName) => {
 
 export const getShowdownSpritesWithAllFallbacks = async (pokemonName) => {
   const showdownName = formatShowdownName(pokemonName)
-  const [officialArtwork, exists] = await Promise.all([
-    getOfficialArtworkUrls(pokemonName),
-    checkSpriteExists(pokemonName)
-  ])
+  const officialArtwork = getOfficialArtworkUrls(pokemonName)
+  const exists = await checkSpriteExists(pokemonName)
 
   return {
-    animated: exists 
+    animated: exists
       ? buildSpriteObject(SPRITE_URLS.BASE, SPRITE_URLS.ANI, showdownName)
       : buildSpriteObject(SPRITE_URLS.BASE, SPRITE_URLS.GEN5, showdownName),
     home: {
@@ -441,11 +386,4 @@ export const getShowdownSpritesWithAllFallbacks = async (pokemonName) => {
     },
     officialArtwork,
   }
-}
-
-// Función para precargar IDs de Pokémon comunes
-export const preloadPokemonIds = async (pokemonNames) => {
-  const uniqueNames = [...new Set(pokemonNames.map(name => name.split('-')[0]))]
-  await Promise.all(uniqueNames.map(name => getPokemonIdFromName(name)))
-  console.log(`📦 Precargados ${uniqueNames.length} IDs de Pokémon`)
 }
