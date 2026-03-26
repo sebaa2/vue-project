@@ -1,8 +1,10 @@
 <template>
-  <header class="bg-red-700 text-white mb-4 py-8 px-6">
-    <div class="container mx-auto flex items-center gap-8">
-      <!-- Mostrar la barra de búsqueda solo si NO está en home -->
-      <div v-if="!isHomeRoute" class="max-w-md">
+  <header class="bg-red-700 text-white mb-4 py-8 px-6 relative">
+    <h1 class="text-3xl font-bold text-center">PokeVite</h1>
+
+    <!-- Mostrar la barra de búsqueda solo si NO está en home -->
+    <div v-if="!isHomeRoute" class="flex justify-start mt-4">
+      <div class="w-96 relative">
         <!-- INPUT DE BÚSQUEDA -->
         <div class="relative">
           <input
@@ -86,8 +88,6 @@
           </div>
         </div>
       </div>
-      
-      <h1 class="text-3xl font-bold">PokeVite</h1>
     </div>
   </header>
 </template>
