@@ -99,7 +99,7 @@ const headerGradientStyle = computed(() => {
   if (!formattedTypes.value?.length) {
     return 'linear-gradient(to right, #4b5563, #1f2937)'
   }
-
+  
   // Mapeo de tipos a colores
   const typeColors = {
     grass: '#4ade80',
@@ -121,34 +121,34 @@ const headerGradientStyle = computed(() => {
     flying: '#818cf8',
     dark: '#1f2937',
   }
-
+  
   // Obtener el tipo del Pokémon (en español)
   const primaryTypeName = formattedTypes.value[0]?.tipo?.toLowerCase()
   // Mapear nombre español a inglés para buscar en typeColors
   const typeMap = {
-    planta: 'grass',
-    fuego: 'fire',
-    agua: 'water',
-    bicho: 'bug',
-    normal: 'normal',
-    veneno: 'poison',
-    eléctrico: 'electric',
-    tierra: 'ground',
-    hada: 'fairy',
-    lucha: 'fighting',
-    psíquico: 'psychic',
-    roca: 'rock',
-    fantasma: 'ghost',
-    hielo: 'ice',
-    dragón: 'dragon',
-    acero: 'steel',
-    volador: 'flying',
-    siniestro: 'dark',
+    'planta': 'grass',
+    'fuego': 'fire',
+    'agua': 'water',
+    'bicho': 'bug',
+    'normal': 'normal',
+    'veneno': 'poison',
+    'eléctrico': 'electric',
+    'tierra': 'ground',
+    'hada': 'fairy',
+    'lucha': 'fighting',
+    'psíquico': 'psychic',
+    'roca': 'rock',
+    'fantasma': 'ghost',
+    'hielo': 'ice',
+    'dragón': 'dragon',
+    'acero': 'steel',
+    'volador': 'flying',
+    'siniestro': 'dark',
   }
-
+  
   const primaryTypeKey = typeMap[primaryTypeName] || primaryTypeName
   const primaryColor = typeColors[primaryTypeKey] || '#4b5563'
-
+  
   // Si tiene segundo tipo
   if (formattedTypes.value.length > 1) {
     const secondaryTypeName = formattedTypes.value[1]?.tipo?.toLowerCase()
@@ -156,7 +156,7 @@ const headerGradientStyle = computed(() => {
     const secondaryColor = typeColors[secondaryTypeKey] || primaryColor
     return `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`
   }
-
+  
   // Un solo tipo
   return `linear-gradient(to right, ${primaryColor}, ${primaryColor}cc)`
 })

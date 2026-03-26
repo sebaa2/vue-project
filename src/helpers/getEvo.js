@@ -121,6 +121,34 @@ export const getEvolutionChain = async (pokemonId) => {
           },
         ],
       },
+      tyrogue: {
+        evolvesTo: [
+          {
+            name: 'hitmonlee',
+            displayName: 'Hitmonlee',
+            method: 'Nivel 20 (si Ataque > Defensa)',
+            style: 'Ataque superior',
+            types: ['fighting'],
+            sprite: 'https://play.pokemonshowdown.com/sprites/home/hitmonlee.png',
+          },
+          {
+            name: 'hitmonchan',
+            displayName: 'Hitmonchan',
+            method: 'Nivel 20 (si Ataque < Defensa)',
+            style: 'Defensa superior',
+            types: ['fighting'],
+            sprite: 'https://play.pokemonshowdown.com/sprites/home/hitmonchan.png',
+          },
+          {
+            name: 'hitmontop',
+            displayName: 'Hitmontop',
+            method: 'Nivel 20 (si Ataque = Defensa)',
+            style: 'Igualdad',
+            types: ['fighting'],
+            sprite: 'https://play.pokemonshowdown.com/sprites/home/hitmontop.png',
+          },
+        ],
+      },
     }
 
     // 6. Procesar cadena

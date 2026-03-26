@@ -200,16 +200,17 @@ const getEvolutionForRow = (level, rowIndex) => {
     <h2 class="text-lg sm:text-xl md:text-2xl font-bold text-center mb-6">Línea Evolutiva</h2>
 
     <div class="overflow-x-auto">
-      <table class="border-collapse mx-auto">
-
+      <table class="border-collapse mx-auto min-w-[600px]">
         <!-- Encabezados -->
         <thead>
           <tr>
             <template v-for="(level, levelIndex) in evolutions" :key="`head-${levelIndex}`">
-              <th class="px-6 py-2 text-xs sm:text-sm font-semibold text-gray-500 text-center tracking-wide uppercase">
+              <th
+                class="px-6 py-2 text-xs sm:text-sm font-semibold text-gray-500 text-center tracking-wide uppercase"
+              >
                 {{ getLevelText(levelIndex) }}
               </th>
-              <th v-if="levelIndex < evolutions.length - 1" class="px-3" aria-hidden="true" />
+              <th v-if="levelIndex < evolutions.length - 1" class="px-3 w-12" aria-hidden="true" />
             </template>
           </tr>
         </thead>
@@ -217,8 +218,10 @@ const getEvolutionForRow = (level, rowIndex) => {
         <!-- Una fila por cada "slot" (máx. evos en un nivel) -->
         <tbody>
           <tr v-for="rowIndex in maxRows" :key="`row-${rowIndex}`">
-            <template v-for="(level, levelIndex) in evolutions" :key="`cell-${levelIndex}-${rowIndex}`">
-
+            <template
+              v-for="(level, levelIndex) in evolutions"
+              :key="`cell-${levelIndex}-${rowIndex}`"
+            >
               <!-- Celda de Pokémon: solo si le toca renderizarse en esta fila -->
               <td
                 v-if="shouldRenderCell(level, rowIndex)"
@@ -228,7 +231,7 @@ const getEvolutionForRow = (level, rowIndex) => {
                 <div
                   @click="handleEvolutionClick(getEvolutionForRow(level, rowIndex))"
                   :class="[
-                    'inline-flex flex-col items-center p-3 rounded-xl cursor-pointer transition-colors relative w-28',
+                    'inline-flex flex-col items-center p-4 rounded-xl cursor-pointer transition-colors relative w-36 sm:w-40',
                     isCurrentPokemon(getEvolutionForRow(level, rowIndex).name)
                       ? 'bg-blue-100 ring-2 ring-blue-500'
                       : 'hover:bg-gray-100',
@@ -238,12 +241,12 @@ const getEvolutionForRow = (level, rowIndex) => {
                   <img
                     :src="getEvolutionSprite(getEvolutionForRow(level, rowIndex))"
                     :alt="getEvolutionForRow(level, rowIndex).name"
-                    class="w-20 h-20 sm:w-24 sm:h-24 object-contain"
+                    class="w-24 h-24 sm:w-28 sm:h-28 object-contain"
                     @error="(e) => (e.target.src = notFound)"
                   />
 
                   <!-- Nombre -->
-                  <p class="text-xs font-semibold mt-2 text-center leading-tight">
+                  <p class="text-sm font-semibold mt-2 text-center leading-tight">
                     {{ getDisplayName(getEvolutionForRow(level, rowIndex)) }}
                   </p>
 
@@ -253,19 +256,23 @@ const getEvolutionForRow = (level, rowIndex) => {
                       v-for="tipo in getEvolutionTypes(getEvolutionForRow(level, rowIndex))"
                       :key="tipo"
                       :class="formatTipos(tipo).color"
-                      class="text-[10px] px-1.5 py-0.5 rounded-full text-white"
+                      class="text-[11px] px-2 py-0.5 rounded-full text-white"
                     >
                       {{ formatTipos(tipo).tipo }}
                     </span>
                   </div>
 
-                  <!-- Método de evolución -->
-                  <p
+                  <!-- Método de evolución - CONTENEDOR MÁS GRANDE -->
+                  <div
                     v-if="getEvolutionForRow(level, rowIndex).method && levelIndex > 0"
-                    class="text-[10px] mt-2 px-2 py-1 rounded-full text-gray-500 italic bg-gray-100 text-center"
+                    class="mt-3 w-full"
                   >
-                    {{ getEvolutionForRow(level, rowIndex).method }}
-                  </p>
+                    <p
+                      class="text-xs px-3 py-2 rounded-lg text-gray-600 bg-gray-100 text-center break-words"
+                    >
+                      {{ getEvolutionForRow(level, rowIndex).method }}
+                    </p>
+                  </div>
 
                   <!-- Badge Dudunsparce 3 segmentos -->
                   <span
@@ -287,8 +294,8 @@ const getEvolutionForRow = (level, rowIndex) => {
                     :class="
                       getBadgeColor(
                         getEvolutionForRow(level, rowIndex).region ||
-                        getEvolutionForRow(level, rowIndex).style ||
-                        getRegionFromForm(getEvolutionForRow(level, rowIndex).name),
+                          getEvolutionForRow(level, rowIndex).style ||
+                          getRegionFromForm(getEvolutionForRow(level, rowIndex).name),
                       )
                     "
                   >
@@ -305,7 +312,7 @@ const getEvolutionForRow = (level, rowIndex) => {
               <td
                 v-if="levelIndex < evolutions.length - 1 && rowIndex === 1"
                 :rowspan="maxRows"
-                class="px-3 text-center align-middle text-2xl sm:text-3xl text-gray-400 font-bold"
+                class="px-4 text-center align-middle text-2xl sm:text-3xl text-gray-400 font-bold"
                 aria-hidden="true"
               >
                 →
