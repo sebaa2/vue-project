@@ -175,6 +175,66 @@ const getBadgeColor = (region) => {
   return colors[region] || 'bg-purple-600'
 }
 
+// ============ FUNCIÓN PARA VERIFICAR SI DEBE MOSTRAR BADGE ============
+
+const shouldShowBadge = (evolution) => {
+  const evolutionName = evolution.name || evolution
+
+  // Mostrar badge para Solgaleo
+  if (evolutionName === 'solgaleo') return true
+
+  // Mostrar badge para Lunala
+  if (evolutionName === 'lunala') return true
+
+  // Mostrar badge para Toxtricity formas
+  if (evolutionName === 'toxtricity-amped' || evolutionName === 'toxtricity-low-key') return true
+
+  // Mostrar badge para Urshifu formas
+  if (evolutionName === 'urshifu-single-strike' || evolutionName === 'urshifu-rapid-strike')
+    return true
+
+  // Mostrar badge para formas regionales (Alola, Galar, Hisui, Paldea)
+  if (
+    evolutionName.includes('-alola') ||
+    evolutionName.includes('-galar') ||
+    evolutionName.includes('-hisui') ||
+    evolutionName.includes('-paldea')
+  )
+    return true
+
+  // No mostrar badge para otros casos
+  return false
+}
+
+// ============ FUNCIÓN PARA OBTENER EL TEXTO DE LA BADGE ============
+
+const getBadgeText = (evolution) => {
+  const evolutionName = evolution.name || evolution
+
+  // Solgaleo y Lunala
+  if (evolutionName === 'solgaleo') return 'Sol'
+  if (evolutionName === 'lunala') return 'Luna'
+
+  // Toxtricity
+  if (evolutionName === 'toxtricity-amped') return 'Amped'
+  if (evolutionName === 'toxtricity-low-key') return 'Low Key'
+
+  // Urshifu
+  if (evolutionName === 'urshifu-single-strike') return 'Brusco'
+  if (evolutionName === 'urshifu-rapid-strike') return 'Fluido'
+
+  // Formas regionales
+  if (evolutionName.includes('-alola')) return 'Alola'
+  if (evolutionName.includes('-galar')) return 'Galar'
+  if (evolutionName.includes('-hisui')) return 'Hisui'
+  if (evolutionName.includes('-paldea')) return 'Paldea'
+
+  // Dudunsparce 3 segmentos (se maneja por separado)
+  if (evolutionName === 'dudunsparce-three-segment') return '3 Segmentos'
+
+  return null
+}
+
 // ============ HELPERS DE TABLA ============
 
 // Número máximo de evos en cualquier nivel (define cuántas filas necesita la tabla)
@@ -274,7 +334,7 @@ const getEvolutionForRow = (level, rowIndex) => {
                     </p>
                   </div>
 
-                  <!-- Badge Dudunsparce 3 segmentos -->
+                  <!-- Badge Dudunsparce 3 segmentos (solo este se muestra siempre) -->
                   <span
                     v-if="getEvolutionForRow(level, rowIndex).name === 'dudunsparce-three-segment'"
                     class="absolute -top-2 -right-2 text-white text-[10px] px-2 py-0.5 rounded-full shadow-md bg-amber-600"
@@ -282,28 +342,13 @@ const getEvolutionForRow = (level, rowIndex) => {
                     3 Segmentos
                   </span>
 
-                  <!-- Badge formas regionales / especiales -->
+                  <!-- Badge para formas específicas: Solgaleo, Lunala, Toxtricity, Urshifu y formas regionales -->
                   <span
-                    v-else-if="
-                      getEvolutionForRow(level, rowIndex).isRegional ||
-                      getEvolutionForRow(level, rowIndex).isSpecialForm ||
-                      getEvolutionForRow(level, rowIndex).style ||
-                      getRegionFromForm(getEvolutionForRow(level, rowIndex).name)
-                    "
+                    v-else-if="shouldShowBadge(getEvolutionForRow(level, rowIndex))"
                     class="absolute -top-2 -right-2 text-white text-[10px] px-2 py-0.5 rounded-full shadow-md"
-                    :class="
-                      getBadgeColor(
-                        getEvolutionForRow(level, rowIndex).region ||
-                          getEvolutionForRow(level, rowIndex).style ||
-                          getRegionFromForm(getEvolutionForRow(level, rowIndex).name),
-                      )
-                    "
+                    :class="getBadgeColor(getBadgeText(getEvolutionForRow(level, rowIndex)))"
                   >
-                    {{
-                      getEvolutionForRow(level, rowIndex).region ||
-                      getEvolutionForRow(level, rowIndex).style ||
-                      getRegionFromForm(getEvolutionForRow(level, rowIndex).name)
-                    }}
+                    {{ getBadgeText(getEvolutionForRow(level, rowIndex)) }}
                   </span>
                 </div>
               </td>
