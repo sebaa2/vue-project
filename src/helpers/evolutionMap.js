@@ -27,6 +27,104 @@ export const evolutionMap = {
       },
     ],
   },
+  // Gen 2
+  onix: {
+    evolvesTo: [
+      {
+        name: 'steelix',
+        displayName: 'Steelix',
+        method: 'Intercambio con Revestimiento Metálico',
+        types: ['steel', 'ground'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/steelix.png',
+      },
+    ],
+  },
+  scyther: {
+    evolvesTo: [
+      {
+        name: 'scizor',
+        displayName: 'Scizor',
+        method: 'Intercambio con Revestimiento Metálico',
+        types: ['bug', 'steel'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/scizor.png',
+      },
+    ],
+  },
+  seadra: {
+    evolvesTo: [
+      {
+        name: 'kingdra',
+        displayName: 'Kingdra',
+        method: 'Intercambio con Escama Dragón',
+        types: ['water', 'dragon'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/kingdra.png',
+      },
+    ],
+  },
+  porygon: {
+    evolvesTo: [
+      {
+        name: 'porygon2',
+        displayName: 'Porygon2',
+        method: 'Intercambio con Mejora',
+        types: ['normal'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/porygon2.png',
+      },
+    ],
+  },
+  poliwhirl: {
+    evolvesTo: [
+      {
+        name: 'politoed',
+        displayName: 'Politoed',
+        method: 'Intercambio con Roca del Rey',
+        types: ['water'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/politoed.png',
+      },
+    ],
+  },
+  slowpoke: {
+    evolvesTo: [
+      {
+        name: 'slowking',
+        displayName: 'Slowking',
+        method: 'Intercambio con Roca del Rey',
+        types: ['water', 'psychic'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/slowking.png',
+      },
+    ],
+  },
+
+  // Gen 3 (caso especial doble)
+  clamperl: {
+    evolvesTo: [
+      {
+        name: 'huntail',
+        displayName: 'Huntail',
+        method: 'Intercambio con Diente Marino',
+        types: ['water'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/huntail.png',
+      },
+      {
+        name: 'gorebyss',
+        displayName: 'Gorebyss',
+        method: 'Intercambio con Escama Marina',
+        types: ['water'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/gorebyss.png',
+      },
+    ],
+  },
+  feebas: {
+    evolvesTo: [
+      {
+        name: 'milotic',
+        displayName: 'Milotic',
+        method: 'Intercambio con Escama Bella (Gen 5+) / Belleza alta + un nivel (Gen 3-4)',
+        types: ['water'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/milotic.png',
+      },
+    ],
+  },
 
   // ==================== GENERACIÓN 4 ====================
   magneton: {
@@ -48,6 +146,62 @@ export const evolutionMap = {
         method: 'Nivel en campo magnético especial (o Piedra Trueno desde Leyendas Arceus)',
         types: ['rock', 'steel'],
         sprite: 'https://play.pokemonshowdown.com/sprites/home/probopass.png',
+      },
+    ],
+  },
+  // Gen 4
+  porygon2: {
+    evolvesTo: [
+      {
+        name: 'porygon-z',
+        displayName: 'Porygon-Z',
+        method: 'Intercambio con Disco Extraño',
+        types: ['normal'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/porygon-z.png',
+      },
+    ],
+  },
+  rhydon: {
+    evolvesTo: [
+      {
+        name: 'rhyperior',
+        displayName: 'Rhyperior',
+        method: 'Intercambio con Protector',
+        types: ['ground', 'rock'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/rhyperior.png',
+      },
+    ],
+  },
+  electabuzz: {
+    evolvesTo: [
+      {
+        name: 'electivire',
+        displayName: 'Electivire',
+        method: 'Intercambio con Electrizador',
+        types: ['electric'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/electivire.png',
+      },
+    ],
+  },
+  magmar: {
+    evolvesTo: [
+      {
+        name: 'magmortar',
+        displayName: 'Magmortar',
+        method: 'Intercambio con Magmatizador',
+        types: ['fire'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/magmortar.png',
+      },
+    ],
+  },
+  dusclops: {
+    evolvesTo: [
+      {
+        name: 'dusknoir',
+        displayName: 'Dusknoir',
+        method: 'Intercambio con Tela Terrible',
+        types: ['ghost'],
+        sprite: 'https://play.pokemonshowdown.com/sprites/home/dusknoir.png',
       },
     ],
   },

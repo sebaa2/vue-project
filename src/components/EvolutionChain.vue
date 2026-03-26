@@ -52,12 +52,27 @@ const getDudunsparceDisplayName = (evolutionName) => {
   return null
 }
 
+// ============ FUNCIONES ESPECÍFICAS PARA PORYGON-Z ============
+
+const isPorygonZ = (evolutionName) => {
+  return evolutionName === 'porygon-z'
+}
+
+const getPorygonZSprite = () => {
+  return 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/474.png'
+}
+
+const getPorygonZDisplayName = () => {
+  return 'Porygon-Z'
+}
+
 // ============ FUNCIONES EXISTENTES ============
 
 const isCurrentPokemon = (evolutionName) => {
   const normalize = (name) => {
     if (name === 'dudunsparce' || name === 'dudunsparce-two-segment') return 'dudunsparce'
     if (name === 'dudunsparce-three-segment') return 'dudunsparce-three-segment'
+    if (name === 'porygon-z') return 'porygon-z'
     return name
   }
   return normalize(props.currentPokemon) === normalize(evolutionName)
@@ -82,6 +97,10 @@ const getDisplayName = (evolution) => {
     if (displayName) return displayName
   }
 
+  if (isPorygonZ(evolutionName)) {
+    return getPorygonZDisplayName()
+  }
+
   if (evolution.displayName) {
     return evolution.displayName
   }
@@ -99,9 +118,15 @@ const getDisplayName = (evolution) => {
 const getEvolutionSprite = (evolution) => {
   const evolutionName = evolution.name || evolution
 
+  // Caso especial Dudunsparce
   if (isDudunsparce(evolutionName)) {
     const sprite = getDudunsparceSprite(evolutionName)
     if (sprite) return sprite
+  }
+
+  // Caso especial Porygon-Z
+  if (isPorygonZ(evolutionName)) {
+    return getPorygonZSprite()
   }
 
   if (evolution.sprite) {
@@ -128,6 +153,10 @@ const getEvolutionTypes = (evolution) => {
 
   if (isDudunsparce(evolutionName)) {
     return ['normal']
+  }
+
+  if (isPorygonZ(evolutionName)) {
+    return evolution.types || ['normal']
   }
 
   if (evolution.types && evolution.types.length > 0) {
