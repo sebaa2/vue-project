@@ -285,38 +285,57 @@ export const usePokemonStore = defineStore(
 
       const formsToPrefetch = formsList
         .filter((form) => {
-          const formId = form.pokemon.url.split('/').filter(Boolean).pop()
-          return formId != currentFormId && !pokemonCache.hasPokemon(parseInt(formId))
+          const urlParts = form.pokemon.url.split('/').filter(Boolean)
+          const lastPart = urlParts.pop()
+          const formId = parseInt(lastPart)
+          const isValidId = !isNaN(formId) && formId > 0
+          const formIdentifier = isValidId ? formId : lastPart
+
+          // Verificar si ya está en caché (por ID o por nombre)
+          const isCached = isValidId
+            ? pokemonCache.hasPokemon(formId)
+            : pokemonCache.hasPokemonByName?.(lastPart) || false
+
+          return formIdentifier != currentFormId && !isCached
         })
         .slice(0, 3)
 
       formsToPrefetch.forEach((form, index) => {
-        const formId = form.pokemon.url.split('/').filter(Boolean).pop()
+        const urlParts = form.pokemon.url.split('/').filter(Boolean)
+        const lastPart = urlParts.pop()
+        const formId = parseInt(lastPart)
+        const isValidId = !isNaN(formId) && formId > 0
+        const formIdentifier = isValidId ? formId : lastPart
 
-        if (activeTimeouts.value.forms[formId]) {
-          clearTimeout(activeTimeouts.value.forms[formId])
-          delete activeTimeouts.value.forms[formId]
+        if (activeTimeouts.value.forms[formIdentifier]) {
+          clearTimeout(activeTimeouts.value.forms[formIdentifier])
+          delete activeTimeouts.value.forms[formIdentifier]
         }
 
         const timeout = setTimeout(
           () => {
             console.log(`🔄 Precargando forma: ${form.pokemon.name}...`)
 
-            getPokemon(formId)
+            fetch(form.pokemon.url)
+              .then((res) => res.json())
               .then((data) => {
                 const processedData = applySprites(data)
-                pokemonCache.setPokemon(parseInt(formId), processedData)
+                pokemonCache.setPokemon(processedData.id, processedData)
+                // También guardar por nombre para búsquedas rápidas
+                if (pokemonCache.setPokemonByName) {
+                  pokemonCache.setPokemonByName(processedData.name, processedData)
+                }
                 console.log(`✅ Forma ${form.pokemon.name} precargada`)
               })
               .catch((err) => console.error(`Error precargando forma:`, err))
               .finally(() => {
-                delete activeTimeouts.value.forms[formId]
+                delete activeTimeouts.value.forms[formIdentifier]
               })
           },
           4000 + index * 1000,
         )
 
-        activeTimeouts.value.forms[formId] = timeout
+        activeTimeouts.value.forms[formIdentifier] = timeout
       })
     }
 
@@ -353,8 +372,6 @@ export const usePokemonStore = defineStore(
         // Registrar visita
         historyStore.addVisit(cachedPokemon)
 
-        // ALERTA DE CARGA ELIMINADA - Ya no se muestra SweetAlert
-
         try {
           const speciesId = await getBaseSpeciesId(cachedPokemon.name, id)
 
@@ -376,11 +393,8 @@ export const usePokemonStore = defineStore(
           if (speciesForms && speciesForms.length > 1) {
             prefetchForms(speciesForms, id)
           }
-
-          // Swal.close() ELIMINADO
         } catch (error) {
           console.error('Error cargando datos adicionales:', error)
-          // Mantener solo alerta de error importante
           Swal.fire({
             icon: 'warning',
             title: 'Datos incompletos',
@@ -395,8 +409,6 @@ export const usePokemonStore = defineStore(
 
       console.log(`🌐 Cargando Pokémon ${id} desde API`)
       pokemon.value = null
-
-      // ALERTA DE CARGA ELIMINADA - Ya no se muestra SweetAlert
 
       try {
         let pokemonData = await getPokemon(id)
@@ -431,7 +443,6 @@ export const usePokemonStore = defineStore(
         }
       } catch (error) {
         console.error('Error cargando Pokémon:', error)
-        // Mantener solo alerta de error importante
         Swal.fire({
           icon: 'error',
           title: 'Error',
@@ -439,7 +450,6 @@ export const usePokemonStore = defineStore(
         })
       } finally {
         isLoading.value = false
-        // Swal.close() ELIMINADO
       }
     }
 
@@ -450,19 +460,33 @@ export const usePokemonStore = defineStore(
       loadingFromCache.value = false
       pokemon.value = null
 
-      // ALERTA DE CARGA ELIMINADA - Ya no se muestra SweetAlert
-
       try {
-        const formId = parseInt(form.pokemon.url.split('/').filter(Boolean).pop())
-        const cachedForm = pokemonCache.getPokemon(formId)
+        const urlParts = form.pokemon.url.split('/').filter(Boolean)
+        const lastPart = urlParts.pop()
+
+        // Intentar obtener ID numérico, si falla usar el nombre
+        const formIdNum = parseInt(lastPart)
+        const isValidId = !isNaN(formIdNum) && formIdNum > 0
+
+        let pokemonIdentifier
+        let cachedForm
+
+        if (isValidId) {
+          pokemonIdentifier = formIdNum
+          cachedForm = pokemonCache.getPokemon(formIdNum)
+        } else {
+          pokemonIdentifier = lastPart
+          // Buscar por nombre si el cache lo soporta
+          cachedForm = pokemonCache.getPokemonByName?.(lastPart) || null
+        }
 
         if (cachedForm) {
-          console.log(`📀 Cargando forma ${formId} desde caché`)
+          console.log(`📀 Cargando forma ${pokemonIdentifier} desde caché`)
           loadingFromCache.value = true
 
-          const savedFallbackStatus = pokemonCache.getMetadata(`fallback_${formId}`)
+          const savedFallbackStatus = pokemonCache.getMetadata(`fallback_${cachedForm.id}`)
           if (savedFallbackStatus !== undefined) {
-            fallbackSpritesStatus.value[formId] = savedFallbackStatus
+            fallbackSpritesStatus.value[cachedForm.id] = savedFallbackStatus
           }
 
           pokemon.value = cachedForm
@@ -472,12 +496,17 @@ export const usePokemonStore = defineStore(
           const moves = await getMoves(cachedForm.moves)
           movesPokemon.value = moves
         } else {
+          console.log(`🌐 Cargando forma desde API: ${form.pokemon.url}`)
           const res = await fetch(form.pokemon.url)
           let data = await res.json()
           data = applySprites(data)
           pokemon.value = data
 
           pokemonCache.setPokemon(data.id, data)
+          // Guardar también por nombre si está disponible
+          if (pokemonCache.setPokemonByName) {
+            pokemonCache.setPokemonByName(data.name, data)
+          }
           pokemonCache.setMetadata(`fallback_${data.id}`, false)
 
           const speciesId = await getBaseSpeciesId(data.name, data.id)
@@ -497,7 +526,6 @@ export const usePokemonStore = defineStore(
         }
       } catch (error) {
         console.error('Error cargando forma:', error)
-        // Mantener solo alerta de error importante
         Swal.fire({
           icon: 'error',
           title: 'Error',
@@ -505,7 +533,6 @@ export const usePokemonStore = defineStore(
         })
       } finally {
         isLoading.value = false
-        // Swal.close() ELIMINADO
       }
     }
 

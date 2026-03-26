@@ -7,8 +7,8 @@ import { usePokemonStore } from '../stores/pokemonStore.js'
 import { useEasterEggStore } from '../stores/EastereggStore.js'
 import { useAbilityModal } from '../composables/useAbilityModal.js'
 import ScrollToTop from '../components/ScrollToTop.vue'
-import BarChar from '../components/BarChar.vue'
-import RadarChar from '../components/RadarChar.vue'
+import BarChar from '../components/graficos/BarChar.vue'
+import RadarChar from '../components/graficos/RadarChar.vue'
 import EvolutionChain from '../components/EvolutionChain.vue'
 import EeveeEvolutions from '../components/EeveeEvolutions.vue'
 import MoveTable from '../components/moves/MoveTable.vue'
@@ -337,6 +337,12 @@ const handleSelectForm = async (form) => {
   isShiny.value = false
 }
 
+const handleGoToEvolution = async (pokemonId) => {
+  // Activar la barra de carga antes de navegar a la evolución
+  await loadPokemonWithProgress(pokemonId)
+  isShiny.value = false
+}
+
 const formatName = (name) => {
   const parts = name.split('-')
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1)
@@ -590,7 +596,7 @@ onUnmounted(() => {
               <span
                 v-else
                 class="px-4 py-2 bg-gray-200 text-gray-500 text-sm font-medium rounded-xl"
-                >Sin habilidad oculta</span
+                >Sin habilidad</span
               >
             </div>
 
@@ -676,13 +682,13 @@ onUnmounted(() => {
           <EeveeEvolutions
             :evolutions="evolutions"
             :current-pokemon="pokemon.name"
-            :on-go-to-evolution="goToEvolution"
+            :on-go-to-evolution="handleGoToEvolution"
           />
           <EvolutionChain
             v-if="!EEVEE_FAMILY.has(pokemon?.name)"
             :evolutions="evolutions"
             :current-pokemon="pokemon.name"
-            :on-go-to-evolution="goToEvolution"
+            :on-go-to-evolution="handleGoToEvolution"
           />
 
           <!-- Estadísticas -->
