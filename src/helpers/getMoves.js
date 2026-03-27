@@ -40,6 +40,7 @@ export const getMoves = async (moves) => {
         pp: moveData.pp,
         effect:
           moveData.effect_entries?.find((e) => e.language.name === 'es')?.effect ||
+          moveData.flavor_text_entries?.find((e) => e.language.name === 'es')?.flavor_text ||
           moveData.effect_entries?.find((e) => e.language.name === 'en')?.effect ||
           'Sin descripción disponible',
         accuracy: moveData.accuracy,
