@@ -6,6 +6,10 @@ import { storeToRefs } from 'pinia'
 import { usePokemonStore } from '../stores/pokemonStore.js'
 import { useEasterEggStore } from '../stores/EastereggStore.js'
 import { useAbilityModal } from '../composables/useAbilityModal.js'
+import { useGradientStyle } from '../composables/useGradientStyle.js'
+import { useSpriteUrls } from '../composables/useSpriteUrls.js'
+import { useMikuEasterEgg } from '../composables/useMikuEasterEgg.js'
+import { usePokemonLoading } from '../composables/usePokemonLoading.js'
 import ScrollToTop from '../components/ScrollToTop.vue'
 import BarChar from '../components/graficos/BarChar.vue'
 import RadarChar from '../components/graficos/RadarChar.vue'
@@ -13,22 +17,13 @@ import EvolutionChain from '../components/EvolutionChain.vue'
 import EeveeEvolutions from '../components/EeveeEvolutions.vue'
 import MoveTable from '../components/moves/MoveTable.vue'
 import { formatPoke } from '../helpers/formatPoke.js'
+import { getPokemonTcgCards } from '../helpers/getPokemonTcgCards.js'
 import { formatTipos, getTiposOptions, getCategoriasOptions } from '../config/arrayTipo.js'
-import notFound from '../assets/images/noFound.png'
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 const EEVEE_FAMILY = new Set([
-  'eevee',
-  'vaporeon',
-  'jolteon',
-  'flareon',
-  'espeon',
-  'umbreon',
-  'leafeon',
-  'glaceon',
-  'sylveon',
-  'eevee-gmax',
-  'eevee-starter',
+  'eevee', 'vaporeon', 'jolteon', 'flareon', 'espeon', 'umbreon',
+  'leafeon', 'glaceon', 'sylveon', 'eevee-gmax', 'eevee-starter',
 ])
 
 const MIKU_POKEMON_IDS = [83, 648]
@@ -38,13 +33,6 @@ const LEARNING_METHODS = {
   machine: 'MT/MO',
   egg: 'Huevo',
   tutor: 'Tutor',
-}
-
-const MEGA_SPECIAL_IDS = {
-  'raichu-mega-x': 10304,
-  'raichu-mega-y': 10305,
-  'absol-mega-z': 10307,
-  'lucario-mega-z': 10310,
 }
 
 // ─── Stores ───────────────────────────────────────────────────────────────────
@@ -66,9 +54,22 @@ const {
 
 const { loadPokemon, selectForm, goToEvolution } = pokemonStore
 
-// ─── Estado local para la barra de carga ───
-const localLoading = ref(true)
-const loadProgress = ref(0)
+// ─── Estado local ─────────────────────────────────────────────────────────────
+const isBarChart = ref(true)
+const isShiny = ref(false)
+const activeForm = ref(null)
+const tcgCards = ref([])
+const tcgCardsLoading = ref(false)
+const tcgCardsChecked = ref(false)
+const shouldShowTcgCards = ref(false)
+const currentTcgRequestId = ref(0)
+let tcgCardsAbortController = null
+
+// ─── Composables ──────────────────────────────────────────────────────────────
+const { headerGradientStyle } = useGradientStyle(formattedTypes)
+const { frontSpriteUrl, backSpriteUrl, handleImageError } = useSpriteUrls(pokemon, isShiny)
+const { setupMikuEasterEgg } = useMikuEasterEgg(pokemon, easterEggStore, MIKU_POKEMON_IDS)
+const { localLoading, loadProgress, loadPokemonWithProgress } = usePokemonLoading()
 
 // ─── Modal de habilidades ─────────────────────────────────────────────────────
 const {
@@ -81,87 +82,8 @@ const {
   cleanupClickOutside,
 } = useAbilityModal()
 
-// ─── Estado local ─────────────────────────────────────────────────────────────
-const isBarChart = ref(true)
-const isShiny = ref(false)
-const activeForm = ref(null)
-const mikuEnabled = ref(false)
-let cleanupMiku = null
-
 // ─── Computed ─────────────────────────────────────────────────────────────────
 const isGigantamax = computed(() => pokemon.value?.name?.includes('-gmax') || false)
-const isMikuEasterEggActive = computed(
-  () => pokemon.value && MIKU_POKEMON_IDS.includes(pokemon.value.id),
-)
-
-// Computed para el gradiente del header usando estilos en línea
-const headerGradientStyle = computed(() => {
-  if (!formattedTypes.value?.length) {
-    return 'linear-gradient(to right, #4b5563, #1f2937)'
-  }
-  
-  // Mapeo de tipos a colores
-  const typeColors = {
-    grass: '#3FA129',
-    fire: '#E62829',
-    water: '#2980EF',
-    bug: '#91A119',
-    normal: '#9FA19F',
-    poison: '#9141CB',
-    electric: '#FAC000',
-    ground: '#915121',
-    fairy: '#EF70EF',
-    fighting: '#FF8000',
-    psychic: '#F95587',
-    rock: '#AFA981',
-    ghost: '#704170',
-    ice: '#3DCEF3',
-    dragon: '#5060E1',
-    steel: '#60A1B8',
-    flying: '#81B9EF',
-    dark: '#624D4E',
-  }
-  
-  // Obtener el tipo del Pokémon (en español)
-  const primaryTypeName = formattedTypes.value[0]?.tipo?.toLowerCase()
-  // Mapear nombre español a inglés para buscar en typeColors
-  const typeMap = {
-    'planta': 'grass',
-    'fuego': 'fire',
-    'agua': 'water',
-    'bicho': 'bug',
-    'normal': 'normal',
-    'veneno': 'poison',
-    'eléctrico': 'electric',
-    'tierra': 'ground',
-    'hada': 'fairy',
-    'lucha': 'fighting',
-    'psíquico': 'psychic',
-    'roca': 'rock',
-    'fantasma': 'ghost',
-    'hielo': 'ice',
-    'dragón': 'dragon',
-    'acero': 'steel',
-    'volador': 'flying',
-    'siniestro': 'dark',
-  }
-  
-  const primaryTypeKey = typeMap[primaryTypeName] || primaryTypeName
-  const primaryColor = typeColors[primaryTypeKey] || '#4b5563'
-  
-  // Si tiene segundo tipo
-  if (formattedTypes.value.length > 1) {
-    const secondaryTypeName = formattedTypes.value[1]?.tipo?.toLowerCase()
-    const secondaryTypeKey = typeMap[secondaryTypeName] || secondaryTypeName
-    const secondaryColor = typeColors[secondaryTypeKey] || primaryColor
-    return `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`
-  }
-  
-  // Un solo tipo
-  return `linear-gradient(to right, ${primaryColor}, ${primaryColor}cc)`
-})
-
-// Opciones de filtro para MoveTable (dependen de los movimientos disponibles)
 const tipoOptions = computed(() => {
   const uniqueTypes = [...new Set(movesPokemon.value.map((m) => m.type))]
   const allTypesOptions = getTiposOptions()
@@ -184,144 +106,56 @@ const methodOptions = computed(() => {
   return [{ value: 'all', label: 'Todos los métodos' }, ...options]
 })
 
-// ─── Funciones de imagen ──────────────────────────────────────────────────────
-const getArtworkId = (pokemonName, defaultId) => MEGA_SPECIAL_IDS[pokemonName] ?? defaultId
-
-const getOfficialArtworkUrl = (pokemonName, pokemonId, isShinyValue = false) => {
-  const artworkId = getArtworkId(pokemonName, pokemonId)
-  if (!artworkId) return null
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${isShinyValue ? 'shiny/' : ''}${artworkId}.png`
-}
-
-const getBasicSpriteUrl = (pokemonName, pokemonId, isShinyValue = false, isBack = false) => {
-  const artworkId = getArtworkId(pokemonName, pokemonId)
-  if (!artworkId) return null
-  const backPath = isBack ? 'back/' : ''
-  const shinyPath = isShinyValue ? 'shiny/' : ''
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${backPath}${shinyPath}${artworkId}.png`
-}
-
-const getSpriteUrl = (type, isShinyValue = false) => {
-  if (!pokemon.value) return notFound
-  const { name: pokemonName, id: pokemonId } = pokemon.value
-
-  const showdownSprite = isShinyValue
-    ? pokemon.value.sprites?.[type === 'front' ? 'front_shiny' : 'back_shiny']
-    : pokemon.value.sprites?.[type === 'front' ? 'front_default' : 'back_default']
-
-  if (showdownSprite && !showdownSprite.includes('undefined')) return showdownSprite
-
-  const artworkUrl = getOfficialArtworkUrl(pokemonName, pokemonId, isShinyValue)
-  if (artworkUrl) return artworkUrl
-
-  const basicUrl = getBasicSpriteUrl(pokemonName, pokemonId, isShinyValue, type === 'back')
-  if (basicUrl) return basicUrl
-
-  return notFound
-}
-
-const frontSpriteUrl = computed(() => getSpriteUrl('front', isShiny.value))
-const backSpriteUrl = computed(() => getSpriteUrl('back', isShiny.value))
-
-const handleImageError = (event, type) => {
-  const img = event.target
-  if (!pokemon.value || img.src === notFound) return
-  const { name: pokemonName, id: pokemonId } = pokemon.value
-  let newUrl = null
-
-  if (img.src.includes('showdown') || img.src.includes('play.pokemonshowdown')) {
-    newUrl = getOfficialArtworkUrl(pokemonName, pokemonId, isShiny.value)
-  } else if (img.src.includes('official-artwork')) {
-    newUrl = getBasicSpriteUrl(pokemonName, pokemonId, isShiny.value, type === 'back')
-  }
-
-  if (newUrl) {
-    img.src = newUrl
-  } else {
-    img.src = notFound
-    img.classList.add('image-error')
-  }
-}
-
+// ─── Funciones de imagen y TCG ────────────────────────────────────────────────
 const handleFrontError = (event) => handleImageError(event, 'front')
 const handleBackError = (event) => handleImageError(event, 'back')
 
-// ─── Función de carga unificada (reemplaza el isLoading del store) ────────────
-const loadPokemonWithProgress = async (pokemonId) => {
-  // Activar loading local
-  localLoading.value = true
-  loadProgress.value = 0
+const formatTcgReleaseDate = (releaseDate) => {
+  if (!releaseDate) return 'Sin fecha'
+  const date = new Date(releaseDate)
+  if (Number.isNaN(date.getTime())) return releaseDate
+  return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' })
+}
 
-  // Simular carga incremental
-  const interval = setInterval(() => {
-    if (loadProgress.value < 90) {
-      // Incremento progresivo
-      const increment = loadProgress.value < 30 ? 15 : loadProgress.value < 60 ? 8 : 3
-      loadProgress.value = Math.min(loadProgress.value + increment, 90)
-    }
-  }, 50)
+const loadTcgCardsForCurrentPokemon = async () => {
+  if (!pokemon.value?.name) {
+    tcgCards.value = []
+    tcgCardsChecked.value = false
+    return
+  }
+
+  tcgCardsAbortController?.abort()
+  tcgCardsAbortController = new AbortController()
+  const requestId = ++currentTcgRequestId.value
+  tcgCardsLoading.value = true
+  tcgCardsChecked.value = false
+  tcgCards.value = []
 
   try {
-    // Cargar el Pokémon real (esto actualiza pokemon.value)
-    await loadPokemon(pokemonId)
+    const cards = await getPokemonTcgCards(pokemon.value.name, {
+      signal: tcgCardsAbortController.signal,
+    })
 
-    // Completar el progreso
-    loadProgress.value = 100
+    if (requestId !== currentTcgRequestId.value) return
 
-    // Pequeño delay para que se vea el 100%
-    await new Promise((resolve) => setTimeout(resolve, 200))
+    tcgCards.value = cards
   } catch (error) {
-    console.error('Error loading Pokémon:', error)
-    loadProgress.value = 100
-    await new Promise((resolve) => setTimeout(resolve, 200))
+    console.error('Error cargando cartas TCG:', error)
+    if (requestId !== currentTcgRequestId.value) return
+    tcgCards.value = []
   } finally {
-    clearInterval(interval)
-    // Desactivar loading local después de un pequeño delay
-    setTimeout(() => {
-      localLoading.value = false
-    }, 100)
+    if (requestId === currentTcgRequestId.value) {
+      tcgCardsChecked.value = true
+      tcgCardsLoading.value = false
+    }
   }
 }
 
-// ─── Easter Egg ──────────────────────────────────────────────────────────
-const setupMikuEasterEgg = () => {
-  const shouldBeActive = isMikuEasterEggActive.value
+const loadTcgCards = async () => {
+  if (tcgCardsLoading.value) return
 
-  if (shouldBeActive && !mikuEnabled.value) {
-    mikuEnabled.value = true
-    const buffer = []
-    const SECRET_WORD = 'miku'
-
-    const handleKeyDown = (e) => {
-      const active = document.activeElement
-      if (
-        active &&
-        (active.tagName?.toLowerCase() === 'input' ||
-          active.tagName?.toLowerCase() === 'textarea' ||
-          active.isContentEditable)
-      )
-        return
-
-      if (e.key.length !== 1 || !e.key.match(/[a-zA-Z]/)) {
-        if (e.key === 'Escape' || e.key === 'Enter') buffer.length = 0
-        return
-      }
-
-      buffer.push(e.key.toLowerCase())
-      while (buffer.length > SECRET_WORD.length) buffer.shift()
-      if (buffer.join('') === SECRET_WORD) {
-        buffer.length = 0
-        easterEggStore.triggerMiku()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    cleanupMiku = () => window.removeEventListener('keydown', handleKeyDown)
-  } else if (!shouldBeActive && mikuEnabled.value) {
-    if (cleanupMiku) cleanupMiku()
-    cleanupMiku = null
-    mikuEnabled.value = false
-  }
+  shouldShowTcgCards.value = true
+  await loadTcgCardsForCurrentPokemon()
 }
 
 // ─── Métodos ──────────────────────────────────────────────────────────────────
@@ -332,44 +166,52 @@ const handleHiddenButtonClick = () => easterEggStore.triggerSilla()
 
 const handleSelectForm = async (form) => {
   activeForm.value = form.pokemon.name
-  // Usar la carga con progreso para cambiar de forma
-  await loadPokemonWithProgress(form.pokemon.name)
+  await loadPokemonWithProgress(loadPokemon, form.pokemon.name)
   isShiny.value = false
 }
 
 const handleGoToEvolution = async (pokemonId) => {
-  // Activar la barra de carga antes de navegar a la evolución
-  await loadPokemonWithProgress(pokemonId)
+  await loadPokemonWithProgress(loadPokemon, pokemonId)
   isShiny.value = false
 }
 
 const formatName = (name) => {
   const parts = name.split('-')
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase() + parts[0].slice(1)
-  return parts
-    .slice(1)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
+  return parts.slice(1).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 }
 
 // ─── Watchers ─────────────────────────────────────────────────────────────────
 watch(route, async () => {
-  // Usar la carga con progreso cuando cambie la ruta
-  await loadPokemonWithProgress(route.params.id)
+  await loadPokemonWithProgress(loadPokemon, route.params.id)
   isShiny.value = false
   await nextTick()
   setupMikuEasterEgg()
 })
 
 watch(
+  () => pokemon.value?.name,
+  (newPokemonName) => {
+    tcgCardsAbortController?.abort()
+    shouldShowTcgCards.value = false
+    tcgCards.value = []
+    tcgCardsChecked.value = false
+    tcgCardsLoading.value = false
+    currentTcgRequestId.value += 1
+
+    if (!newPokemonName) {
+      return
+    }
+  },
+  { immediate: true },
+)
+
+watch(
   () => pokemon.value?.id,
   async () => {
     setupMikuEasterEgg()
     if (normalAbilities.value?.length > 0 || hiddenAbility.value) {
-      const allAbilities = [
-        ...(normalAbilities.value || []),
-        ...(hiddenAbility.value ? [hiddenAbility.value] : []),
-      ]
+      const allAbilities = [...(normalAbilities.value || []), ...(hiddenAbility.value ? [hiddenAbility.value] : [])]
       await preloadAbilityNames(allAbilities)
     }
   },
@@ -378,18 +220,15 @@ watch(
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 onMounted(async () => {
-  // Usar la carga con progreso al montar el componente
-  await loadPokemonWithProgress(route.params.id)
+  await loadPokemonWithProgress(loadPokemon, route.params.id)
   await nextTick()
   setupMikuEasterEgg()
   setupClickOutside()
 })
 
 onUnmounted(() => {
-  if (cleanupMiku) cleanupMiku()
-  mikuEnabled.value = false
+  tcgCardsAbortController?.abort()
   cleanupClickOutside()
-  // Resetear estados
   localLoading.value = true
   loadProgress.value = 0
 })
@@ -544,6 +383,76 @@ onUnmounted(() => {
                 />
                 <p class="text-sm text-gray-500 mt-3 font-medium">Vista trasera</p>
               </div>
+            </div>
+          </div>
+
+          <!-- Cartas TCG -->
+          <div class="mb-8">
+            <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+              <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <svg
+                  class="w-6 h-6 text-amber-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3 10.5L12 3l9 7.5V19a2 2 0 01-2 2h-4v-7H9v7H5a2 2 0 01-2-2v-8.5z"
+                  />
+                </svg>
+                Cartas recientes de {{ formatPoke(pokemon.name) }}
+              </h2>
+
+              <button
+                @click="loadTcgCards"
+                :disabled="tcgCardsLoading"
+                class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {{ tcgCardsLoading ? 'Buscando cartas...' : shouldShowTcgCards ? 'Actualizar cartas' : 'Mostrar cartas' }}
+              </button>
+            </div>
+
+            <div v-if="shouldShowTcgCards && tcgCardsLoading" class="flex items-center gap-3 text-gray-500 text-sm">
+              <div
+                class="animate-spin rounded-full h-5 w-5 border-2 border-amber-500 border-t-transparent"
+              />
+              Buscando las 5 cartas más recientes...
+            </div>
+
+            <div
+              v-else-if="shouldShowTcgCards && tcgCards.length"
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
+            >
+              <div
+                v-for="card in tcgCards"
+                :key="card.id"
+                class="group rounded-2xl border border-gray-200 bg-white p-3 shadow-sm hover:shadow-lg transition-all duration-200"
+              >
+                <img
+                  :src="card.images?.small"
+                  :alt="card.name"
+                  class="w-full aspect-[3/4] object-contain rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 p-2"
+                />
+                <div class="mt-3">
+                  <p class="font-semibold text-sm text-gray-800 line-clamp-2 min-h-[2.5rem]">
+                    {{ card.name }}
+                  </p>
+                  <p class="mt-1 text-[11px] text-gray-500">{{ card.set?.name }}</p>
+                  <p class="text-[11px] text-gray-400">
+                    {{ formatTcgReleaseDate(card.set?.releaseDate) }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-else-if="shouldShowTcgCards && tcgCardsChecked"
+              class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-5 text-sm text-gray-500"
+            >
+              No se encontraron cartas recientes para {{ formatPoke(pokemon.name) }}.
             </div>
           </div>
 

@@ -19,6 +19,20 @@ This template should help get you started developing with Vue 3 in Vite.
 
 See [Vite Configuration Reference](https://vite.dev/config/).
 
+## Variables de entorno
+
+Para habilitar la búsqueda de cartas del Pokémon TCG, crea un archivo `.env` con tu clave:
+
+```sh
+cp .env.example .env
+```
+
+Luego agrega tu API key en el archivo:
+
+```env
+VITE_TCG_API_KEY=tu_api_key_aqui
+```
+
 ## Project Setup
 
 ```sh
