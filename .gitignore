@@ -7,36 +7,53 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencias
 node_modules
-.DS_Store
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Directorios de construcción
 dist
 dist-ssr
+build
 coverage
+.cache
+
+# Archivos de sistema
+.DS_Store
 *.local
+*.tsbuildinfo
+.eslintcache
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
 
-*.tsbuildinfo
-
-.eslintcache
-
-# Cypress
+# Testing
 /cypress/videos/
 /cypress/screenshots/
-
-# Vitest
 __screenshots__/
+coverage/
 
 # Vite
 *.timestamp-*-*.mjs
 
-# env
-*.env
+# Variables de entorno - TODOS los archivos .env
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Archivos temporales
+*.tmp
+*.temp
+*.cache
