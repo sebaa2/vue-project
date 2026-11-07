@@ -23,6 +23,7 @@ export function formatTipos(type) {
     steel: { color: 'bg-[#60A1B8]', tipo: 'Acero' },
     flying: { color: 'bg-[#81B9EF]', tipo: 'Volador' },
     dark: { color: 'bg-[#624D4E]', tipo: 'Siniestro' },
+    stellar: { color: 'bg-[#7B61FF]', tipo: 'Astral' },
   }
 
   return tipos[tipoStr] || { color: 'bg-gray-500', tipo: tipoStr }

@@ -31,6 +31,12 @@
         <div class="text-center mb-8">
           <h1 class="text-4xl md:text-5xl font-black text-red-800 mb-2">Pokédex</h1>
           <p class="text-gray-600 text-lg">Explora los {{ totalPokemonsCount }} Pokémon</p>
+          <router-link
+            to="/competitive"
+            class="mt-4 inline-flex rounded-xl bg-red-700 px-5 py-2.5 font-bold text-white transition hover:bg-red-800"
+          >
+            Abrir módulo competitivo
+          </router-link>
 
           <!-- Mostrar el Pokémon más buscado -->
           <MostVisitedPokemon :mostVisitedPokemon="mostVisitedPokemon" />

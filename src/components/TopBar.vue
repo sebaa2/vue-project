@@ -8,6 +8,12 @@
         >
           PokeVite
         </h1>
+        <router-link
+          to="/competitive"
+          class="rounded-lg border border-white/30 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+        >
+          Competitivo
+        </router-link>
       </div>
 
       <!-- Mostrar la barra de búsqueda solo si NO está en home -->

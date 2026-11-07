@@ -235,7 +235,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <!-- 🔴 ÚNICA BARRA DE CARGA - No hay superposición porque reemplazamos isLoading del store -->
+  <!-- 🔴 ÚNICA BARRA DE CARGA -  -->
   <div
     v-if="localLoading"
     class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100"
